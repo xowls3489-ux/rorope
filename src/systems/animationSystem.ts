@@ -59,30 +59,32 @@ export class AnimationSystem {
   landingAnimation(player: PIXI.Graphics): void {
     // 착지 시 플레이어 바운스
     gsap.fromTo(player, 
-      { pixi: { scale: 1.3 } },
+      { pixi: { scale: 1.15 } },
       { 
         pixi: { scale: 1 },
-        duration: 0.3,
+        duration: 0.22,
         ease: "bounce.out"
       }
     );
 
-    // 착지 효과 (흰색 플래시)
-    const flash = new PIXI.Graphics();
-    flash.beginFill(0xFFFFFF, 0.8);
-    flash.drawRect(0, 0, 800, 600);
-    flash.endFill();
-    
-    player.parent.addChild(flash);
-    
-    gsap.fromTo(flash, 
-      { pixi: { alpha: 0.8 } },
-      { 
-        pixi: { alpha: 0 },
-        duration: 0.2,
+    // 착지 효과: 전체 화면 플래시 대신 플레이어 주변 링 이펙트
+    const ring = new PIXI.Graphics();
+    ring.lineStyle(6, 0xFFFFFF, 0.7);
+    ring.drawCircle(0, 0, 24);
+    ring.endFill?.();
+    ring.x = player.x;
+    ring.y = player.y;
+    ring.alpha = 0.8;
+    player.parent.addChild(ring);
+
+    gsap.fromTo(ring,
+      { pixi: { scale: 0.8, alpha: 0.8 } },
+      {
+        pixi: { scale: 1.6, alpha: 0 },
+        duration: 0.25,
         ease: "power2.out",
         onComplete: () => {
-          player.parent.removeChild(flash);
+          player.parent.removeChild(ring);
         }
       }
     );

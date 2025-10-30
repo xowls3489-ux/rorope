@@ -27,6 +27,17 @@ export interface RopeState {
   anchorX: number;
   anchorY: number;
   length: number;
+  // grappling hook flight state
+  isFlying?: boolean;
+  tipX?: number;
+  tipY?: number;
+  dirX?: number;
+  dirY?: number;
+  speed?: number;
+  maxLength?: number;
+  // pulling state (anchor attached, pulling player to anchor)
+  isPulling?: boolean;
+  pullSpeed?: number;
 }
 
 // 게임 상태 스토어
@@ -54,7 +65,16 @@ export const ropeState = map<RopeState>({
   isActive: false,
   anchorX: 0,
   anchorY: 0,
-  length: 0
+  length: 0,
+  isFlying: false,
+  tipX: 0,
+  tipY: 0,
+  dirX: 0,
+  dirY: 0,
+  speed: 0,
+  maxLength: 600,
+  isPulling: false,
+  pullSpeed: 1200
 });
 
 // 플랫폼 배열 스토어
@@ -122,6 +142,42 @@ export const gameActions = {
     ropeState.setKey('length', Math.max(1, length));
     gameState.setKey('isSwinging', true);
     ropeState.setKey('isActive', true);
+    ropeState.setKey('isFlying', false);
+    ropeState.setKey('isPulling', false);
+  },
+
+  // launch rope as a projectile (grappling hook)
+  launchRope: (startX: number, startY: number, dirX: number, dirY: number, speed: number, maxLength: number) => {
+    ropeState.setKey('isActive', true);
+    ropeState.setKey('isFlying', true);
+    ropeState.setKey('tipX', startX);
+    ropeState.setKey('tipY', startY);
+    ropeState.setKey('dirX', dirX);
+    ropeState.setKey('dirY', dirY);
+    ropeState.setKey('speed', speed);
+    ropeState.setKey('maxLength', maxLength);
+  },
+
+  updateRopeTip: (x: number, y: number) => {
+    ropeState.setKey('tipX', x);
+    ropeState.setKey('tipY', y);
+  },
+
+  stopRopeFlight: () => {
+    ropeState.setKey('isFlying', false);
+    ropeState.setKey('isActive', false);
+  },
+
+  startPull: (speed: number = 1200) => {
+    ropeState.setKey('isActive', true);
+    ropeState.setKey('isFlying', false);
+    ropeState.setKey('isPulling', true);
+    ropeState.setKey('pullSpeed', speed);
+    gameState.setKey('isSwinging', false);
+  },
+
+  stopPull: () => {
+    ropeState.setKey('isPulling', false);
   },
 
   updateCamera: (cameraX: number) => {

@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { initGame } from '../game';
+  import { initGameManager } from '../core/GameManager';
 
   let titleInstance = null;
   let gameContainer = null;
@@ -13,7 +13,7 @@
     if (gameContainer) {
       // PixiJS 게임 초기화
       try {
-        const gameInstance = await initGame();
+        const gameInstance = await initGameManager();
         console.log('PixiJS game initialized:', gameInstance);
         
         // 게임 시작
@@ -45,10 +45,7 @@
       // 애플리케이션 파괴 (자동으로 리스너 정리됨)
       app.destroy(true);
       
-      // DOM에서 캔버스 제거
-      if (gameContainer) {
-        gameContainer.innerHTML = '';
-      }
+      // DOM 정리는 PixiJS app.destroy(true)가 처리하므로 별도 innerHTML 조작은 생략
       
       // 전역 인스턴스 초기화
       window.gameInstance = null;
