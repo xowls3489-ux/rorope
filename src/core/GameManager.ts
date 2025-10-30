@@ -24,6 +24,9 @@ export class GameManager {
     private bgTiles: PIXI.Graphics[] = [];
     private bgTileWidth: number = 800;
     private bgSpeed: number = 0.4;
+    private landingGraceFrames: number = 0;
+    private readonly maxSpeedX: number = 18;
+    private readonly maxSpeedY: number = 80;
 
     constructor() { this.init(); }
 
@@ -67,7 +70,10 @@ export class GameManager {
         gameActions.setSwinging(false);
         const playerPos = playerState.get(); const ropePos = ropeState.get(); const ropeLength = Math.max(1, ropePos.length || GAME_CONFIG.ropeLength);
         const swingSpeed = Math.sqrt(playerPos.angularVelocity * playerPos.angularVelocity * ropeLength);
-        const velocityX = Math.sin(playerPos.swingAngle) * swingSpeed; const velocityY = Math.cos(playerPos.swingAngle) * swingSpeed;
+        let velocityX = Math.sin(playerPos.swingAngle) * swingSpeed; let velocityY = Math.cos(playerPos.swingAngle) * swingSpeed;
+        // 속도 캡
+        velocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, velocityX));
+        velocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, velocityY));
         gameActions.updatePlayerVelocity(velocityX, velocityY);
         animationSystem.ropeReleaseAnimation(this.player, this.rope); soundSystem.play('ropeRelease');
     }
@@ -86,7 +92,7 @@ export class GameManager {
     private update(): void {
         const currentState = gameState.get(); if (!currentState.isPlaying) return;
         try {
-            const rope = ropeState.get(); if (rope.isFlying) { ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); } else if (rope.isPulling) { this.updatePullToAnchor(); } else if (currentState.isSwinging) { this.updateSwingPhysics(); } else { this.updateFreeFallPhysics(); }
+            const rope = ropeState.get(); if (rope.isFlying) { ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); this.updateFreeFallPhysics(); } else if (rope.isPulling) { this.updatePullToAnchor(); } else if (currentState.isSwinging) { this.updateSwingPhysics(); } else { this.updateFreeFallPhysics(); }
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
         this.checkGameOver();
@@ -96,8 +102,8 @@ export class GameManager {
 
     private updateCamera(): void {
         const playerPos = playerState.get();
-        this.targetWorldX = -(playerPos.x - this.cameraCenterX); this.targetWorldX = Math.max(this.targetWorldX, 0); this.worldX += (this.targetWorldX - this.worldX) * 0.12;
-        const viewH = GAME_CONFIG.height; const deadZoneY = 120; const currentWorldY = this.world.y || 0; let targetWorldY = currentWorldY; const playerScreenY = playerPos.y + currentWorldY; const topBound = viewH / 2 - deadZoneY; const bottomBound = viewH / 2 + deadZoneY; if (playerScreenY < topBound) { targetWorldY += (topBound - playerScreenY); } else if (playerScreenY > bottomBound) { targetWorldY -= (playerScreenY - bottomBound); } const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.1;
+        this.targetWorldX = -(playerPos.x - this.cameraCenterX); this.targetWorldX = Math.min(this.targetWorldX, 0); this.worldX += (this.targetWorldX - this.worldX) * 0.12;
+        const viewH = GAME_CONFIG.height; const deadZoneY = 150; const currentWorldY = this.world.y || 0; let targetWorldY = currentWorldY; const playerScreenY = playerPos.y + currentWorldY; const topBound = viewH / 2 - deadZoneY; const bottomBound = viewH / 2 + deadZoneY; if (playerScreenY < topBound) { targetWorldY += (topBound - playerScreenY); } else if (playerScreenY > bottomBound) { targetWorldY -= (playerScreenY - bottomBound); } const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.07;
         this.world.x = this.worldX; this.world.y = newWorldY; gameActions.updateCamera(-this.worldX);
     }
 
@@ -105,8 +111,19 @@ export class GameManager {
 
     private updatePullToAnchor(): void {
         const ropePos = ropeState.get(); const playerPos = playerState.get(); const dt = 0.016; const speed = ropePos.pullSpeed || 1200; const dx = ropePos.anchorX - playerPos.x; const dy = ropePos.anchorY - playerPos.y; const dist = Math.hypot(dx, dy);
-        if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = Math.max(playerPos.velocityX, GAME_CONFIG.runSpeed); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; } animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore(); return; }
-        const stepX = (dx / dist) * speed * dt; const stepY = (dy / dist) * speed * dt; gameActions.updatePlayerPosition(playerPos.x + stepX, playerPos.y + stepY); gameActions.updatePlayerVelocity(stepX / dt, stepY / dt);
+        if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = GAME_CONFIG.runSpeed; gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; this.player.visible = true; this.player.alpha = 1; } animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore(); return; }
+        const stepX = (dx / dist) * speed * dt; const stepY = (dy / dist) * speed * dt; const nextX = playerPos.x + stepX; const nextY = playerPos.y + stepY;
+        // 풀 이동 선분이 플랫폼 상단을 관통하는지 검사 → 즉시 착지로 스냅
+        const currentPlatforms = platforms.get();
+        for (const platform of currentPlatforms) {
+            const pg = platform as PlatformGraphics; const left = platform.x; const right = platform.x + pg.width; const top = platform.y; const targetTopY = top - 15;
+            const crossesTop = playerPos.y > targetTopY && nextY <= targetTopY; const withinX = (Math.max(playerPos.x, nextX) >= left - 14) && (Math.min(playerPos.x, nextX) <= right + 14);
+            if (crossesTop && withinX) {
+                const snapX = nextX; const snapY = targetTopY; gameActions.updatePlayerPosition(snapX, snapY); const runVx = GAME_CONFIG.runSpeed; gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1; }
+                animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore(); return;
+            }
+        }
+        gameActions.updatePlayerPosition(nextX, nextY); gameActions.updatePlayerVelocity(stepX / dt, stepY / dt);
     }
 
     private updateSwingPhysics(): void {
@@ -118,18 +135,24 @@ export class GameManager {
         if (this.player && this.player.isOnPlatform && this.player.platformY !== undefined) {
             const currentPlatforms = platforms.get();
             const onPlatform = currentPlatforms.find(p => { const pg = p as PlatformGraphics; const onX = playerPos.x + 15 > p.x && playerPos.x - 15 < p.x + pg.width; const onY = Math.abs(this.player!.platformY! - (p.y - 15)) <= 2; return onX && onY; });
-            if (onPlatform) { const vx = playerPos.velocityX !== 0 ? playerPos.velocityX : GAME_CONFIG.runSpeed; const newX = playerPos.x + vx; gameActions.updatePlayerPosition(newX, this.player.platformY); gameActions.updatePlayerVelocity(vx, 0); return; } else { this.player.isOnPlatform = false; this.player.platformY = undefined; }
+            if (onPlatform) { const vx = GAME_CONFIG.runSpeed; const newX = playerPos.x + vx; gameActions.updatePlayerPosition(newX, this.player.platformY); gameActions.updatePlayerVelocity(vx, 0); return; } else { this.player.isOnPlatform = false; this.player.platformY = undefined; }
         }
-        const gravity = GAME_CONFIG.gravity * 0.016; const airResistance = 0.99; const newVelocityY = (playerPos.velocityY + gravity) * airResistance; const newVelocityX = playerPos.velocityX * airResistance; const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); this.checkPlatformLanding();
+        const gravity = GAME_CONFIG.gravity * 0.016; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); this.checkPlatformLanding();
     }
 
     private checkPlatformLanding(): void {
         const currentPlatforms = platforms.get(); const playerPos = playerState.get();
         currentPlatforms.forEach(platform => {
-            const platformCast = platform as PlatformGraphics; const isHorizontallyAligned = playerPos.x + 15 > platform.x && playerPos.x - 15 < platform.x + platformCast.width; const platformTop = platform.y; const playerBottom = playerPos.y + 15; const isOnTop = playerBottom >= platformTop - 5 && playerBottom <= platformTop + 20; const isFallingDown = playerPos.velocityY > 0;
+            const platformCast = platform as PlatformGraphics; const isHorizontallyAligned = playerPos.x + 14 > platform.x && playerPos.x - 14 < platform.x + platformCast.width; const platformTop = platform.y; const playerBottom = playerPos.y + 15; const isOnTop = playerBottom >= platformTop - 4 && playerBottom <= platformTop + 10; const isFallingDown = playerPos.velocityY > 0.2;
             if (isHorizontallyAligned && isOnTop && isFallingDown && !platformCast.landed) {
-                gameActions.updatePlayerPosition(playerPos.x, platform.y - 15); const runVx = Math.max(playerPos.velocityX, GAME_CONFIG.runSpeed); gameActions.updatePlayerVelocity(runVx, 0); gameActions.setSwinging(false);
-                if (!this.player) return; this.player.isOnPlatform = true; this.player.platformY = platform.y - 15; platformCast.landed = true; gameActions.addScore(); this.updateScore(); animationSystem.landingAnimation(this.player); soundSystem.play('landing');
+                const snapY = platform.y - 15;
+                gameActions.updatePlayerPosition(playerPos.x, snapY);
+                const runVx = GAME_CONFIG.runSpeed;
+                gameActions.updatePlayerVelocity(runVx, 0);
+                gameActions.setSwinging(false);
+                if (!this.player) return; this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1;
+                platformCast.landed = true; this.landingGraceFrames = 12;
+                gameActions.addScore(); this.updateScore(); animationSystem.landingAnimation(this.player); soundSystem.play('landing');
             }
         });
     }
@@ -142,9 +165,15 @@ export class GameManager {
         if (rightmostPlatformEnd < cameraRight + spawnThreshold) { const gap = 250 + Math.random() * 150; const x = rightmostPlatformEnd + gap; const y = 50 + Math.random() * 350; const platform = this.createPlatform(x, y); const newRightmost = x + platform.width; gameActions.updateCamera(newRightmost); }
     }
 
-    private drawRope(): void { ropeSystem.drawRope(this.rope, COLORS.rope); const topIndex = this.world.children.length - 1; this.world.setChildIndex(this.rope, topIndex); if (this.player) { const ropeIndex = this.world.getChildIndex(this.rope); const desired = Math.max(0, ropeIndex - 1); this.world.setChildIndex(this.player, desired); } }
+    private drawRope(): void {
+        ropeSystem.drawRope(this.rope, COLORS.rope);
+        const topIndex = this.world.children.length - 1;
+        if (this.player) { this.world.setChildIndex(this.player, topIndex); }
+        const ropeTargetIndex = Math.max(0, this.world.children.length - 2);
+        this.world.setChildIndex(this.rope, ropeTargetIndex);
+    }
 
-    private checkGameOver(): void { const playerPos = playerState.get(); const screenX = playerPos.x + this.world.x; const screenY = playerPos.y + this.world.y; const outBottom = screenY > GAME_CONFIG.height + 80; const outTop = screenY < -120; const outLeft = screenX < -200; if (outBottom || outTop || outLeft) { gameActions.endGame(); this.gameOverText.visible = true; animationSystem.gameOverAnimation(this.gameOverText); soundSystem.play('gameOver'); } }
+    private checkGameOver(): void { const playerPos = playerState.get(); if (this.landingGraceFrames > 0) { this.landingGraceFrames -= 1; return; } const screenX = playerPos.x + this.world.x; const screenY = playerPos.y + this.world.y; const outBottom = screenY > GAME_CONFIG.height + 120; const outTop = screenY < -160; const outLeft = screenX < -220; if (outBottom || outTop || outLeft) { gameActions.endGame(); this.gameOverText.visible = true; animationSystem.gameOverAnimation(this.gameOverText); soundSystem.play('gameOver'); } }
 }
 
 let gameManagerInstance: GameManager | null = null;

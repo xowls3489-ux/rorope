@@ -57,6 +57,8 @@ export class AnimationSystem {
 
   // 착지 애니메이션
   landingAnimation(player: PIXI.Graphics): void {
+    // 안전장치: 플레이어가 사라지지 않도록 알파/스케일 복구
+    gsap.set(player, { pixi: { alpha: 1, scale: 1, rotation: 0 } });
     // 착지 시 플레이어 바운스
     gsap.fromTo(player, 
       { pixi: { scale: 1.15 } },
@@ -85,6 +87,8 @@ export class AnimationSystem {
         ease: "power2.out",
         onComplete: () => {
           player.parent.removeChild(ring);
+          // 안전장치: 애니메이션 종료 후에도 플레이어 표시 상태 유지
+          gsap.set(player, { pixi: { alpha: 1, scale: 1, rotation: 0 } });
         }
       }
     );

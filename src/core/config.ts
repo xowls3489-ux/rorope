@@ -1,7 +1,7 @@
 export const GAME_CONFIG = {
     width: 800,
     height: 600,
-    gravity: 0.3,
+    gravity: 3.2,
     ropeLength: 180,
     damping: 0.995,
     runSpeed: 3,
