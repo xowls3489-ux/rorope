@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+
+# Build outputs
+/dist/
+/build/
+/.svelte-kit/
+/.vite/
+
+# Vite/Svelte
+.vite
+.svelte-kit
+
+# Editor/OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*

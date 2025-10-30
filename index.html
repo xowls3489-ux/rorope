@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>바밧줄</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* 개별 씬 루트는 항상 전체 화면 */
+        #title-root,
+        #game-root {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* 항상 하나만 보이도록 */
+        #game-root {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="title-root"></div>
+    <div id="game-root"></div>
+    <script type="module" src="/src/main-svelte.ts"></script>
+</body>
+</html>
