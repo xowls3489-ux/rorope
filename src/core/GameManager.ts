@@ -174,11 +174,12 @@ export class GameManager {
         gameActions.updateCamera(50 + startingPlatform.width); 
         let lastX = 50 + startingPlatform.width; 
         
-        // 나머지 플랫폼은 애니메이션 적용
+        // 나머지 플랫폼은 애니메이션 적용 (상단부터 하단까지 다양한 높이)
         for (let i = 0; i < 4; i++) { 
             const gap = 250 + Math.random() * 100; 
             lastX = lastX + gap; 
-            const y = 50 + Math.random() * 350; 
+            // Y 범위 확대: 100 ~ 500 (화면 상단부터 하단까지)
+            const y = 100 + Math.random() * 400; 
             const platform = this.createPlatform(lastX, y); 
             lastX = lastX + platform.width; 
             gameActions.updateCamera(lastX); 
@@ -413,7 +414,15 @@ export class GameManager {
         const filteredPlatforms = currentPlatforms.filter(platform => { if (platform.x + platform.width < cameraLeft - 200) { this.world.removeChild(platform); return false; } return true; }); platforms.set(filteredPlatforms);
         const cameraRight = cameraLeft + GAME_CONFIG.width; const spawnThreshold = 600; let rightmostPlatformEnd = gameState.get().lastPlatformX;
         filteredPlatforms.forEach(platform => { const platformCast = platform as PlatformGraphics; const platformEnd = platform.x + platformCast.width; if (platformEnd > rightmostPlatformEnd) { rightmostPlatformEnd = platformEnd; } });
-        if (rightmostPlatformEnd < cameraRight + spawnThreshold) { const gap = 250 + Math.random() * 150; const x = rightmostPlatformEnd + gap; const y = 50 + Math.random() * 350; const platform = this.createPlatform(x, y); const newRightmost = x + platform.width; gameActions.updateCamera(newRightmost); }
+        if (rightmostPlatformEnd < cameraRight + spawnThreshold) { 
+            const gap = 250 + Math.random() * 150; 
+            const x = rightmostPlatformEnd + gap; 
+            // Y 범위 확대: 100 ~ 500 (화면 상단부터 하단까지)
+            const y = 100 + Math.random() * 400; 
+            const platform = this.createPlatform(x, y); 
+            const newRightmost = x + platform.width; 
+            gameActions.updateCamera(newRightmost); 
+        }
     }
 
     private drawRope(): void {
