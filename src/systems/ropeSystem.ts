@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { gameActions, playerState, ropeState, platforms } from '../stores/gameStore';
+import { vfxSystem } from './vfxSystem';
 
 export class RopeSystem {
     launchFromClick(app: PIXI.Application, world: PIXI.Container, clientX: number, clientY: number, shootSpeed: number = 2200, maxLength: number = 700): void {
@@ -86,6 +87,10 @@ export class RopeSystem {
             const stabilizedVy = Math.max(-12, Math.min(12, currentVy * 0.4));
             gameActions.updatePlayerVelocity(stabilizedVx, stabilizedVy);
             gameActions.startPull(1300);
+            
+            // 이벤트: 로프 연결 시 VFX 트리거
+            vfxSystem.drawRopeAttachLine(playerPos.x, playerPos.y, anchorX, anchorY);
+            
             return;
         }
 
@@ -111,13 +116,26 @@ export class RopeSystem {
         } catch {}
 
         graphics.clear();
-        graphics.lineStyle(3, ropeColor, 1);
+        
+        // 이중 라인 효과 (필터 없이): 외곽선 + 중심선
         if (rope.isFlying) {
             const tipX = rope.tipX ?? playerPos.x;
             const tipY = rope.tipY ?? playerPos.y;
+            // 외곽선 (넓고 투명)
+            graphics.lineStyle(6, ropeColor, 0.1);
+            graphics.moveTo(playerPos.x, playerPos.y);
+            graphics.lineTo(tipX, tipY);
+            // 중심선 (얇고 선명)
+            graphics.lineStyle(2, ropeColor, 1);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(tipX, tipY);
         } else if (rope.isActive) {
+            // 외곽선 (넓고 투명)
+            graphics.lineStyle(6, ropeColor, 0.1);
+            graphics.moveTo(playerPos.x, playerPos.y);
+            graphics.lineTo(rope.anchorX, rope.anchorY);
+            // 중심선 (얇고 선명)
+            graphics.lineStyle(2, ropeColor, 1);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(rope.anchorX, rope.anchorY);
         }

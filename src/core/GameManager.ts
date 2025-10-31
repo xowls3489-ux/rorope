@@ -3,6 +3,7 @@ import { gameState, playerState, ropeState, gameActions, platforms } from '../st
 import { soundSystem } from '../systems/soundSystem';
 import { animationSystem } from '../systems/animationSystem';
 import { ropeSystem } from '../systems/ropeSystem';
+import { vfxSystem } from '../systems/vfxSystem';
 import { GAME_CONFIG, COLORS } from './config';
 
 interface PlayerGraphics extends PIXI.Graphics { isOnPlatform?: boolean; platformY?: number; }
@@ -13,6 +14,7 @@ export class GameManager {
     private stage!: PIXI.Container;
     private world!: PIXI.Container;
     private bgLayer!: PIXI.Container;
+    private fxLayer!: PIXI.Container;
     private player!: PlayerGraphics;
     private rope!: PIXI.Graphics;
     private scoreText!: PIXI.Text;
@@ -43,9 +45,10 @@ export class GameManager {
         const gameRoot = document.getElementById('game-root');
         (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
         this.stage = this.app.stage;
+        this.bgLayer = new PIXI.Container(); this.bgLayer.name = 'bgLayer'; this.stage.addChildAt(this.bgLayer, 0);
         this.world = new PIXI.Container(); this.world.name = 'world'; this.stage.addChild(this.world);
         ;(this.world as any).eventMode = 'static'; this.world.interactive = true; this.world.hitArea = new PIXI.Rectangle(-10000, -10000, 20000, 20000);
-        this.bgLayer = new PIXI.Container(); this.bgLayer.name = 'bgLayer'; this.stage.addChildAt(this.bgLayer, 0);
+        this.fxLayer = vfxSystem.initialize(this.stage); // FX 레이어 초기화 및 추가
         this.initBackground(); this.initGameObjects(); this.initInput();
         this.app.ticker.add(this.update.bind(this)); this.app.ticker.maxFPS = 60;
     }
@@ -121,13 +124,16 @@ export class GameManager {
         velocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, velocityY));
         gameActions.updatePlayerVelocity(velocityX, velocityY);
         animationSystem.ropeReleaseAnimation(this.player, this.rope); soundSystem.play('ropeRelease');
+        
+        // 이벤트: 로프 해제 시 파티클 효과
+        vfxSystem.spawnReleaseParticles(playerPos.x, playerPos.y, velocityX, velocityY);
     }
 
     private createPlatform(x: number, y: number): PlatformGraphics { const platform = new PIXI.Graphics() as PlatformGraphics; const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); platform.beginFill(COLORS.primary); platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); platform.endFill(); platform.x = x; platform.y = y; platform.width = width; platform.height = GAME_CONFIG.platformHeight; this.world.addChild(platform); gameActions.addPlatform(platform); animationSystem.platformSpawnAnimation(platform); return platform; }
 
     private generateInitialPlatforms(): void { gameActions.clearPlatforms(); gameActions.updateCamera(0); const startingPlatform = this.createPlatform(50, GAME_CONFIG.height - 165); gameActions.updateCamera(50 + startingPlatform.width); let lastX = 50 + startingPlatform.width; for (let i = 0; i < 4; i++) { const gap = 250 + Math.random() * 100; lastX = lastX + gap; const y = 50 + Math.random() * 350; const platform = this.createPlatform(lastX, y); lastX = lastX + platform.width; gameActions.updateCamera(lastX); } }
 
-    private startGame(): void { gameActions.startGame(); if (!this.player) { this.initGameObjects(); } this.player.x = 100; this.player.y = GAME_CONFIG.height - 180; gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180); gameActions.updatePlayerVelocity(0, 0); gameActions.updateSwingPhysics(0, 0); this.worldX = 0; this.targetWorldX = 0; this.world.x = 0; this.world.y = 0; this.generateInitialPlatforms(); this.updateScore(); this.gameOverText.visible = false; animationSystem.fadeInUI(this.scoreText); }
+    private startGame(): void { gameActions.startGame(); if (!this.player) { this.initGameObjects(); } this.player.x = 100; this.player.y = GAME_CONFIG.height - 180; gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180); gameActions.updatePlayerVelocity(0, 0); gameActions.updateSwingPhysics(0, 0); this.worldX = 0; this.targetWorldX = 0; this.world.x = 0; this.world.y = 0; if (this.fxLayer) { this.fxLayer.x = 0; this.fxLayer.y = 0; } this.generateInitialPlatforms(); this.updateScore(); this.gameOverText.visible = false; animationSystem.fadeInUI(this.scoreText); vfxSystem.reset(); }
     public startGameFromUI(): void { this.startGame(); }
     public restartGameFromUI(): void { this.restartGame(); }
     private restartGame(): void { const currentPlatforms = platforms.get(); currentPlatforms.forEach(p => { this.world.removeChild(p); }); gameActions.clearPlatforms(); this.isSwingSoundPlaying = false; this.startGame(); }
@@ -139,6 +145,7 @@ export class GameManager {
         try {
             const rope = ropeState.get(); if (rope.isFlying) { ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); this.updateFreeFallPhysics(); } else if (rope.isPulling) { this.updatePullToAnchor(); } else if (currentState.isSwinging) { this.updateSwingPhysics(); } else { this.updateFreeFallPhysics(); }
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
+            vfxSystem.update(); // VFX 시스템 업데이트 (파티클 이동, fxLayer 페이드)
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
         this.checkGameOver();
     }
@@ -171,6 +178,11 @@ export class GameManager {
         const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.15;
         this.world.x = this.worldX;
         this.world.y = newWorldY;
+        // fxLayer 위치도 world와 동기화 (카메라 이동 반영)
+        if (this.fxLayer) {
+            this.fxLayer.x = this.worldX;
+            this.fxLayer.y = newWorldY;
+        }
         gameActions.updateCamera(-this.worldX);
     }
 
@@ -178,7 +190,11 @@ export class GameManager {
 
     private updatePullToAnchor(): void {
         const ropePos = ropeState.get(); const playerPos = playerState.get(); const dt = 0.016; const speed = ropePos.pullSpeed || 1200; const dx = ropePos.anchorX - playerPos.x; const dy = ropePos.anchorY - playerPos.y; const dist = Math.hypot(dx, dy);
-        if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; this.player.visible = true; this.player.alpha = 1; } animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore(); return; }
+        if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; this.player.visible = true; this.player.alpha = 1; } animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
+            // 이벤트: 착지 시 VFX 트리거
+            vfxSystem.spawnDustParticles(targetX, targetY, 3);
+            vfxSystem.triggerScreenShake(this.stage);
+            return; }
         const stepX = (dx / dist) * speed * dt; const stepY = (dy / dist) * speed * dt; const nextX = playerPos.x + stepX; const nextY = playerPos.y + stepY;
         // 풀 이동 선분이 플랫폼 상단을 관통하는지 검사 → 즉시 착지로 스냅
         const currentPlatforms = platforms.get();
@@ -187,7 +203,11 @@ export class GameManager {
             const crossesTop = playerPos.y > targetTopY && nextY <= targetTopY; const withinX = (Math.max(playerPos.x, nextX) >= left - 14) && (Math.min(playerPos.x, nextX) <= right + 14);
             if (crossesTop && withinX) {
                 const snapX = nextX; const snapY = targetTopY; gameActions.updatePlayerPosition(snapX, snapY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1; }
-                animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore(); return;
+                animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
+                // 이벤트: 착지 시 VFX 트리거
+                vfxSystem.spawnDustParticles(snapX, snapY, 3);
+                vfxSystem.triggerScreenShake(this.stage);
+                return;
             }
         }
         gameActions.updatePlayerPosition(nextX, nextY); gameActions.updatePlayerVelocity(stepX / dt, stepY / dt);
@@ -221,6 +241,10 @@ export class GameManager {
                 if (!this.player) return; this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1;
                 platformCast.landed = true; this.landingGraceFrames = 12;
                 gameActions.addScore(); this.updateScore(); animationSystem.landingAnimation(this.player); soundSystem.play('landing');
+                
+                // 이벤트: 착지 시 VFX 트리거
+                vfxSystem.spawnDustParticles(playerPos.x, snapY, 3);
+                vfxSystem.triggerScreenShake(this.stage);
             }
         });
     }
