@@ -174,15 +174,21 @@ export class GameManager {
         gameActions.updateCamera(50 + startingPlatform.width); 
         let lastX = 50 + startingPlatform.width; 
         
-        // 나머지 플랫폼은 애니메이션 적용 (상단부터 하단까지 다양한 높이)
-        for (let i = 0; i < 7; i++) { // 4 -> 7개로 증가
-            const gap = 250 + Math.random() * 100; 
-            lastX = lastX + gap; 
-            // Y 범위 확대: 100 ~ 500 (화면 상단부터 하단까지)
-            const y = 100 + Math.random() * 400; 
-            const platform = this.createPlatform(lastX, y); 
-            lastX = lastX + platform.width; 
-            gameActions.updateCamera(lastX); 
+        // 나머지 플랫폼은 애니메이션 적용 (각 위치마다 상단과 하단에 모두 배치)
+        for (let i = 0; i < 8; i++) { // 8세트 생성
+            const gap = 180 + Math.random() * 70; // 간격: 180~250
+            lastX = lastX + gap;
+            
+            // 상단 플랫폼 생성 (80 ~ 280)
+            const yTop = 80 + Math.random() * 200;
+            const platformTop = this.createPlatform(lastX, yTop);
+            
+            // 하단 플랫폼 생성 (350 ~ 520)
+            const yBottom = 350 + Math.random() * 170;
+            const platformBottom = this.createPlatform(lastX + 20, yBottom); // X 위치 약간 어긋나게
+            
+            lastX = lastX + Math.max(platformTop.width, platformBottom.width);
+            gameActions.updateCamera(lastX);
         } 
     }
     
@@ -415,13 +421,18 @@ export class GameManager {
         const cameraRight = cameraLeft + GAME_CONFIG.width; const spawnThreshold = 600; let rightmostPlatformEnd = gameState.get().lastPlatformX;
         filteredPlatforms.forEach(platform => { const platformCast = platform as PlatformGraphics; const platformEnd = platform.x + platformCast.width; if (platformEnd > rightmostPlatformEnd) { rightmostPlatformEnd = platformEnd; } });
         if (rightmostPlatformEnd < cameraRight + spawnThreshold) { 
-            const gap = 250 + Math.random() * 150; 
-            const x = rightmostPlatformEnd + gap; 
-            // Y 범위 확대: 100 ~ 500 (화면 상단부터 하단까지)
-            const y = 100 + Math.random() * 400; 
-            const platform = this.createPlatform(x, y); 
-            const newRightmost = x + platform.width; 
-            gameActions.updateCamera(newRightmost); 
+            const gap = 180 + Math.random() * 70;
+            const x = rightmostPlatformEnd + gap;
+            
+            // 상단과 하단에 모두 플랫폼 생성
+            const yTop = 80 + Math.random() * 200; // 상단: 80~280
+            const platformTop = this.createPlatform(x, yTop);
+            
+            const yBottom = 350 + Math.random() * 170; // 하단: 350~520
+            const platformBottom = this.createPlatform(x + 20, yBottom);
+            
+            const newRightmost = x + Math.max(platformTop.width, platformBottom.width);
+            gameActions.updateCamera(newRightmost);
         }
     }
 
