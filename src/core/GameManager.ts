@@ -57,7 +57,10 @@ export class GameManager {
 
     private initGameObjects(): void {
         this.player = new PIXI.Graphics() as PlayerGraphics; this.player.beginFill(0xFFFFFF); this.player.drawCircle(0, 0, 15); this.player.endFill(); this.world.addChild(this.player);
-        this.player.x = 100; this.player.y = GAME_CONFIG.height - 180;
+        // 초기 위치는 나중에 startGame()에서 플랫폼 위에 정확히 배치됨
+        // 여기서는 임시 위치만 설정 (화면 밖에 숨김)
+        this.player.x = -100;
+        this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
         this.scoreText = new PIXI.Text('Score: 0', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
         this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
@@ -69,19 +72,37 @@ export class GameManager {
         this.world.interactive = true;
         this.world.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
             const currentState = gameState.get();
-            if (!currentState.isPlaying) { if (currentState.gameOver) { this.restartGame(); } return; }
-            const rope = ropeState.get();
-            // 로프가 스윙 중이면 해제만 (기존 동작 유지)
+            
+            // 게임 오버 상태면 재시작
+            if (currentState.gameOver) {
+                this.restartGame();
+                return;
+            }
+            
+            // 게임이 아직 시작되지 않았으면 로프 발사로 게임 시작
+            if (!currentState.isPlaying) {
+                this.shootRopeTowardPoint(event.clientX, event.clientY);
+                return;
+            }
+            
+            // 게임 진행 중: 로프가 스윙 중이면 해제만
             if (currentState.isSwinging) {
                 this.releaseRope();
             } else {
-                // 스윙 중이 아니면 새 로프 발사 (풀링 중이거나 연결되어 있어도 발사 가능)
+                // 스윙 중이 아니면 새 로프 발사
                 this.shootRopeTowardPoint(event.clientX, event.clientY);
             }
         });
     }
 
     private shootRopeTowardPoint(clientX: number, clientY: number): void {
+        const currentState = gameState.get();
+        
+        // 첫 로프 발사 시 게임 시작 (플랫폼은 이미 생성되어 있으므로 isPlaying만 true로 설정)
+        if (!currentState.isPlaying) {
+            gameState.setKey('isPlaying', true);
+        }
+        
         // 로프 상태 완전히 리셋 (발사 전 상태 정리)
         const rope = ropeState.get();
         const wasRopeActive = rope.isFlying || rope.isPulling || rope.isActive;
@@ -90,7 +111,6 @@ export class GameManager {
             ropeState.setKey('isPulling', false);
             ropeState.setKey('isActive', false);
         }
-        const currentState = gameState.get();
         if (currentState.isSwinging) {
             gameActions.setSwinging(false);
         }
@@ -110,6 +130,20 @@ export class GameManager {
         ropeSystem.launchFromClick(this.app, this.world, clientX, clientY);
         if (this.player) { this.player.isOnPlatform = false; }
         soundSystem.play('ropeShoot');
+        
+        // 로프 발사 시 스파크 효과
+        const rect = (this.app.view as HTMLCanvasElement).getBoundingClientRect();
+        const worldClickX = clientX - rect.left - this.world.x;
+        const worldClickY = clientY - rect.top - this.world.y;
+        const dx = worldClickX - playerPos.x;
+        const dy = worldClickY - playerPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 50) {
+            const dirLen = Math.max(1e-6, dist);
+            const dirX = dx / dirLen;
+            const dirY = dy / dirLen;
+            vfxSystem.spawnRopeShootSpark(playerPos.x, playerPos.y, dirX, dirY);
+        }
     }
 
     private releaseRope(): void {
@@ -131,9 +165,115 @@ export class GameManager {
 
     private createPlatform(x: number, y: number): PlatformGraphics { const platform = new PIXI.Graphics() as PlatformGraphics; const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); platform.beginFill(COLORS.primary); platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); platform.endFill(); platform.x = x; platform.y = y; platform.width = width; platform.height = GAME_CONFIG.platformHeight; this.world.addChild(platform); gameActions.addPlatform(platform); animationSystem.platformSpawnAnimation(platform); return platform; }
 
-    private generateInitialPlatforms(): void { gameActions.clearPlatforms(); gameActions.updateCamera(0); const startingPlatform = this.createPlatform(50, GAME_CONFIG.height - 165); gameActions.updateCamera(50 + startingPlatform.width); let lastX = 50 + startingPlatform.width; for (let i = 0; i < 4; i++) { const gap = 250 + Math.random() * 100; lastX = lastX + gap; const y = 50 + Math.random() * 350; const platform = this.createPlatform(lastX, y); lastX = lastX + platform.width; gameActions.updateCamera(lastX); } }
+    private generateInitialPlatforms(): void { 
+        gameActions.clearPlatforms(); 
+        gameActions.updateCamera(0); 
+        
+        // 시작 플랫폼은 애니메이션 없이 즉시 생성 (플레이어가 위에 서 있어야 하므로)
+        const startingPlatform = this.createPlatformNoAnimation(50, GAME_CONFIG.height - 165); 
+        gameActions.updateCamera(50 + startingPlatform.width); 
+        let lastX = 50 + startingPlatform.width; 
+        
+        // 나머지 플랫폼은 애니메이션 적용
+        for (let i = 0; i < 4; i++) { 
+            const gap = 250 + Math.random() * 100; 
+            lastX = lastX + gap; 
+            const y = 50 + Math.random() * 350; 
+            const platform = this.createPlatform(lastX, y); 
+            lastX = lastX + platform.width; 
+            gameActions.updateCamera(lastX); 
+        } 
+    }
+    
+    private createPlatformNoAnimation(x: number, y: number): PlatformGraphics { 
+        const platform = new PIXI.Graphics() as PlatformGraphics; 
+        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); 
+        platform.beginFill(COLORS.primary); 
+        platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); 
+        platform.endFill(); 
+        platform.x = x; 
+        platform.y = y; 
+        platform.width = width; 
+        platform.height = GAME_CONFIG.platformHeight; 
+        this.world.addChild(platform); 
+        gameActions.addPlatform(platform); 
+        // 애니메이션 없이 즉시 표시
+        return platform; 
+    }
 
-    private startGame(): void { gameActions.startGame(); if (!this.player) { this.initGameObjects(); } this.player.x = 100; this.player.y = GAME_CONFIG.height - 180; gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180); gameActions.updatePlayerVelocity(0, 0); gameActions.updateSwingPhysics(0, 0); this.worldX = 0; this.targetWorldX = 0; this.world.x = 0; this.world.y = 0; if (this.fxLayer) { this.fxLayer.x = 0; this.fxLayer.y = 0; } this.generateInitialPlatforms(); this.updateScore(); this.gameOverText.visible = false; animationSystem.fadeInUI(this.scoreText); vfxSystem.reset(); }
+    private startGame(): void {
+        // 게임 초기화만 수행 (isPlaying은 false로 시작 - 로프 발사 시 시작됨)
+        // 플레이어 위치는 플랫폼 생성 후 설정하므로 초기화만
+        gameActions.startGame();
+        gameState.setKey('isPlaying', false); // 로프 발사 전까지 게임 대기 상태
+        
+        if (!this.player) {
+            this.initGameObjects();
+        }
+        
+        // 플랫폼을 먼저 생성 (플레이어보다 먼저)
+        this.generateInitialPlatforms();
+        
+        // 시작 플랫폼 찾기
+        const currentPlatforms = platforms.get();
+        const startingPlatform = currentPlatforms[0];
+        
+        if (startingPlatform) {
+            const pg = startingPlatform as PlatformGraphics;
+            // 플랫폼의 y 좌표는 플랫폼의 상단 위치
+            // 플랫폼 상단 = startingPlatform.y
+            // 플레이어 중심이 플랫폼 상단보다 15px 위에 있어야 함 (플레이어 반지름 15)
+            // 플레이어 하단 = 플레이어 중심 + 15 = 플랫폼 상단과 맞춤
+            const platformTopY = startingPlatform.y;
+            const playerY = platformTopY - 15; // 플레이어 중심 위치
+            const playerX = 50 + (pg.width / 2); // 플랫폼 중앙에 배치
+            
+            console.log('플레이어 배치:', { 
+                platformTopY, 
+                playerY, 
+                playerX, 
+                platformWidth: pg.width,
+                playerBottom: playerY + 15,
+                platformHeight: GAME_CONFIG.platformHeight
+            });
+            
+            // 플레이어를 플랫폼 위에 정확히 배치 (렌더링 순서 고려)
+            this.player.x = playerX;
+            this.player.y = playerY;
+            gameActions.updatePlayerPosition(playerX, playerY);
+            gameActions.updatePlayerVelocity(0, 0);
+            gameActions.updateSwingPhysics(0, 0);
+            
+            // 플레이어를 플랫폼 위에 고정
+            this.player.isOnPlatform = true;
+            this.player.platformY = playerY;
+            
+            // 플레이어를 렌더링 최상단으로 이동 (플랫폼 위에 보이도록)
+            const playerIndex = this.world.children.indexOf(this.player);
+            if (playerIndex >= 0 && playerIndex < this.world.children.length - 1) {
+                this.world.setChildIndex(this.player, this.world.children.length - 1);
+            }
+        } else {
+            // 플랫폼이 없으면 기본 위치
+            this.player.x = 100;
+            this.player.y = GAME_CONFIG.height - 180;
+            gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180);
+            gameActions.updatePlayerVelocity(0, 0);
+        }
+        
+        this.worldX = 0;
+        this.targetWorldX = 0;
+        this.world.x = 0;
+        this.world.y = 0;
+        if (this.fxLayer) {
+            this.fxLayer.x = 0;
+            this.fxLayer.y = 0;
+        }
+        this.updateScore();
+        this.gameOverText.visible = false;
+        animationSystem.fadeInUI(this.scoreText);
+        vfxSystem.reset();
+    }
     public startGameFromUI(): void { this.startGame(); }
     public restartGameFromUI(): void { this.restartGame(); }
     private restartGame(): void { const currentPlatforms = platforms.get(); currentPlatforms.forEach(p => { this.world.removeChild(p); }); gameActions.clearPlatforms(); this.isSwingSoundPlaying = false; this.startGame(); }
@@ -163,19 +303,32 @@ export class GameManager {
         
         // Y축 추적 (수직)
         const viewH = GAME_CONFIG.height;
-        const deadZoneY = 150;
+        const deadZoneY = 100; // 150 -> 100으로 줄여서 더 민감하게 반응
         const currentWorldY = this.world.y || 0;
         let targetWorldY = currentWorldY;
         const playerScreenY = playerPos.y + currentWorldY;
-        const topBound = viewH / 2 - deadZoneY;
-        const bottomBound = viewH / 2 + deadZoneY;
+        const topBound = viewH / 2 - deadZoneY; // 화면 중앙 기준 상한선
+        const bottomBound = viewH / 2 + deadZoneY; // 화면 중앙 기준 하한선
+        
+        // 플레이어가 상한선 위에 있으면 카메라를 위로 이동
         if (playerScreenY < topBound) {
-            targetWorldY += (topBound - playerScreenY);
+            const offset = topBound - playerScreenY;
+            targetWorldY += offset;
         } else if (playerScreenY > bottomBound) {
-            targetWorldY -= (playerScreenY - bottomBound);
+            // 하한선: 플레이어가 아래로 떨어질 때만 제한적으로 추적
+            // 하지만 화면 하단을 넘어서면 카메라 추적 중단 (게임 오버를 위해)
+            const offset = playerScreenY - bottomBound;
+            // 플레이어가 화면 밖으로 나가면 카메라 추적 중단
+            if (playerScreenY > viewH + 50) {
+                // 카메라를 더 내리지 않음 (현재 위치 유지)
+                targetWorldY = currentWorldY;
+            } else {
+                targetWorldY -= offset;
+            }
         }
-        // Y축 추적 속도도 향상
-        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.15;
+        
+        // Y축 추적 속도 향상 (0.15 -> 0.25로 더 빠르게)
+        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.25;
         this.world.x = this.worldX;
         this.world.y = newWorldY;
         // fxLayer 위치도 world와 동기화 (카메라 이동 반영)
@@ -192,7 +345,9 @@ export class GameManager {
         const ropePos = ropeState.get(); const playerPos = playerState.get(); const dt = 0.016; const speed = ropePos.pullSpeed || 1200; const dx = ropePos.anchorX - playerPos.x; const dy = ropePos.anchorY - playerPos.y; const dist = Math.hypot(dx, dy);
         if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; this.player.visible = true; this.player.alpha = 1; } animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
             // 이벤트: 착지 시 VFX 트리거
-            vfxSystem.spawnDustParticles(targetX, targetY, 3);
+            vfxSystem.spawnDustParticles(targetX, targetY, 5);
+            vfxSystem.spawnLandingRipple(targetX, targetY);
+            vfxSystem.spawnScoreBurst(targetX, targetY - 30); // 점수 위치에 버스트
             vfxSystem.triggerScreenShake(this.stage);
             return; }
         const stepX = (dx / dist) * speed * dt; const stepY = (dy / dist) * speed * dt; const nextX = playerPos.x + stepX; const nextY = playerPos.y + stepY;
@@ -205,7 +360,9 @@ export class GameManager {
                 const snapX = nextX; const snapY = targetTopY; gameActions.updatePlayerPosition(snapX, snapY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1; }
                 animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
                 // 이벤트: 착지 시 VFX 트리거
-                vfxSystem.spawnDustParticles(snapX, snapY, 3);
+                vfxSystem.spawnDustParticles(snapX, snapY, 5);
+                vfxSystem.spawnLandingRipple(snapX, snapY);
+                vfxSystem.spawnScoreBurst(snapX, snapY - 30); // 점수 위치에 버스트
                 vfxSystem.triggerScreenShake(this.stage);
                 return;
             }
@@ -243,7 +400,9 @@ export class GameManager {
                 gameActions.addScore(); this.updateScore(); animationSystem.landingAnimation(this.player); soundSystem.play('landing');
                 
                 // 이벤트: 착지 시 VFX 트리거
-                vfxSystem.spawnDustParticles(playerPos.x, snapY, 3);
+                vfxSystem.spawnDustParticles(playerPos.x, snapY, 5);
+                vfxSystem.spawnLandingRipple(playerPos.x, snapY);
+                vfxSystem.spawnScoreBurst(playerPos.x, snapY - 30); // 점수 위치에 버스트
                 vfxSystem.triggerScreenShake(this.stage);
             }
         });
@@ -271,15 +430,31 @@ export class GameManager {
             this.landingGraceFrames -= 1;
             return;
         }
+        
+        // 간단한 게임 오버 체크: 플레이어 Y 좌표가 너무 크면 (바닥으로 떨어짐)
+        const playerYTooLow = playerPos.y > 2000;
+        
+        // 화면 좌표 계산: world.x와 world.y는 카메라 오프셋
         const screenX = playerPos.x + this.world.x;
         const screenY = playerPos.y + this.world.y;
-        // 아래쪽: 화면 높이(600) + 여유 공간(50px) - 더 엄격하게 조정
-        const outBottom = screenY > GAME_CONFIG.height+50;
-        const outTop = screenY < -160;
-        const outLeft = screenX < -220;
-        // 디버깅용: screenY 값 확인
-        // console.log('screenY:', screenY, 'height:', GAME_CONFIG.height, 'outBottom:', outBottom);
-        if (outBottom || outTop || outLeft) {
+        
+        // 게임 오버 조건:
+        // - 플레이어 Y 좌표가 3000 이상 (바닥으로 너무 떨어짐)
+        // - 아래쪽: 화면 높이를 크게 벗어남
+        const outBottom = screenY > GAME_CONFIG.height + 50;
+        // - 위쪽: 화면 위로 너무 많이 나감
+        const outTop = screenY < -50;
+        // - 왼쪽: 화면 왼쪽으로 나감
+        const outLeft = screenX < -50;
+        
+        if (playerYTooLow || outBottom || outTop || outLeft) {
+            console.log('GAME OVER!', {
+                playerY: playerPos.y.toFixed(1),
+                playerYTooLow,
+                outBottom,
+                outTop,
+                outLeft
+            });
             gameActions.endGame();
             this.gameOverText.visible = true;
             animationSystem.gameOverAnimation(this.gameOverText);

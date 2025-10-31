@@ -90,8 +90,8 @@ export const gameActions = {
     gameState.setKey('lastPlatformX', 0);
     gameState.setKey('gameOver', false);
     
-    playerState.setKey('x', 100);
-    playerState.setKey('y', 450);
+    // 플레이어 위치는 플랫폼 생성 후 GameManager에서 설정
+    // 여기서는 기본값만 설정 (실제 위치는 나중에 업데이트됨)
     playerState.setKey('velocityX', 0);
     playerState.setKey('velocityY', 0);
     playerState.setKey('swingAngle', 0);

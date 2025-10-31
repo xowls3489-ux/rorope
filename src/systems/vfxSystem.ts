@@ -8,6 +8,9 @@ interface Particle {
     vy: number;
     visible: boolean;
     alpha: number;
+    color?: number;
+    size?: number;
+    scale?: number;
 }
 
 /**
@@ -19,7 +22,7 @@ interface Particle {
 export class VFXSystem {
     private fxLayer!: PIXI.Container;
     private particles: Particle[] = [];
-    private readonly particlePoolSize = 30;
+    private readonly particlePoolSize = 50; // 30 -> 50으로 증가
     private stageAlpha: number = 1.0;
 
     /**
@@ -62,7 +65,10 @@ export class VFXSystem {
                 vx: 0,
                 vy: 0,
                 visible: false,
-                alpha: 1.0
+                alpha: 1.0,
+                color: 0xffffff,
+                size: 3,
+                scale: 1.0
             };
         });
     }
@@ -70,7 +76,7 @@ export class VFXSystem {
     /**
      * 사용 가능한 파티클 찾기 및 스폰
      */
-    spawnParticle(x: number, y: number, vx: number, vy: number): void {
+    spawnParticle(x: number, y: number, vx: number, vy: number, color: number = 0xffffff, size: number = 3): void {
         // fxLayer가 초기화되지 않았으면 리턴
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
@@ -85,21 +91,29 @@ export class VFXSystem {
         particle.vx = vx;
         particle.vy = vy;
         particle.alpha = 1.0;
+        particle.color = color;
+        particle.size = size;
+        particle.scale = 1.0;
         particle.visible = true;
         
-        // graphics 객체 설정 (parent 체크 제거 - 초기화 시 이미 추가됨)
+        // graphics 객체 설정 및 색상/크기 업데이트
         if (particle.graphics) {
+            particle.graphics.clear();
+            particle.graphics.beginFill(color);
+            particle.graphics.drawCircle(0, 0, size);
+            particle.graphics.endFill();
             particle.graphics.visible = true;
             particle.graphics.alpha = 1.0;
             particle.graphics.x = x;
             particle.graphics.y = y;
+            particle.graphics.scale.set(1.0);
         }
     }
 
     /**
      * 여러 파티클 스폰 (착지 시 먼지 효과)
      */
-    spawnDustParticles(x: number, y: number, count: number = 3): void {
+    spawnDustParticles(x: number, y: number, count: number = 5): void {
         // fxLayer가 초기화되지 않았으면 리턴
         if (!this.fxLayer || !this.particles || this.particles.length === 0) {
             console.warn('[VFX] fxLayer 또는 particles가 초기화되지 않음');
@@ -107,12 +121,15 @@ export class VFXSystem {
         }
 
         console.log(`[VFX] 먼지 파티클 ${count}개 스폰:`, x, y);
+        const colors = [0xffffff, 0xcccccc, 0xaaaaaa]; // 흰색 계열 다양한 톤
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-            const speed = 2 + Math.random() * 3;
+            const speed = 2 + Math.random() * 4;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
-            this.spawnParticle(x, y, vx, vy);
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = 2 + Math.random() * 3;
+            this.spawnParticle(x, y, vx, vy, color, size);
         }
     }
 
@@ -126,14 +143,17 @@ export class VFXSystem {
             return;
         }
 
-        const count = 3 + Math.floor(Math.random() * 3); // 3~5개
+        const count = 5 + Math.floor(Math.random() * 4); // 5~8개로 증가
         console.log(`[VFX] 로프 해제 파티클 ${count}개 스폰:`, x, y);
+        const baseAngle = Math.atan2(vy, vx);
         for (let i = 0; i < count; i++) {
-            const angle = Math.atan2(vy, vx) + (Math.random() - 0.5) * 0.8;
-            const speed = 3 + Math.random() * 4;
+            const angle = baseAngle + (Math.random() - 0.5) * 1.2;
+            const speed = 4 + Math.random() * 5;
             const pvx = Math.cos(angle) * speed;
             const pvy = Math.sin(angle) * speed;
-            this.spawnParticle(x, y, pvx, pvy);
+            const color = 0xffffff; // 흰색
+            const size = 3 + Math.random() * 2;
+            this.spawnParticle(x, y, pvx, pvy, color, size);
         }
     }
 
@@ -183,6 +203,82 @@ export class VFXSystem {
     }
 
     /**
+     * 착지 시 원형 파동 효과
+     */
+    spawnLandingRipple(x: number, y: number): void {
+        if (!this.fxLayer) return;
+
+        const ripple = new PIXI.Graphics();
+        ripple.lineStyle(3, 0xffffff, 0.8);
+        ripple.drawCircle(0, 0, 10);
+        ripple.x = x;
+        ripple.y = y;
+        ripple.alpha = 1.0;
+        this.fxLayer.addChild(ripple);
+
+        let frames = 0;
+        const maxFrames = 20;
+        const rippleTick = () => {
+            frames++;
+            if (!ripple.parent) return;
+            
+            const progress = frames / maxFrames;
+            const scale = 1 + progress * 3; // 1 -> 4배 확대
+            ripple.scale.set(scale);
+            ripple.alpha = Math.max(0, 1.0 - progress);
+            ripple.clear();
+            ripple.lineStyle(3 * (1 - progress * 0.5), 0xffffff, 0.8 * (1 - progress));
+            ripple.drawCircle(0, 0, 10);
+
+            if (frames >= maxFrames) {
+                if (ripple.parent) {
+                    this.fxLayer.removeChild(ripple);
+                }
+                ripple.destroy();
+            }
+        };
+
+        (ripple as any).vfxRipple = rippleTick;
+    }
+
+    /**
+     * 로프 발사 시 스파크 효과
+     */
+    spawnRopeShootSpark(x: number, y: number, dirX: number, dirY: number): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
+
+        const count = 4 + Math.floor(Math.random() * 3); // 4~6개
+        for (let i = 0; i < count; i++) {
+            const angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 0.6;
+            const speed = 5 + Math.random() * 4;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            const color = 0xffff00; // 노란색 스파크
+            const size = 2 + Math.random() * 2;
+            this.spawnParticle(x, y, vx, vy, color, size);
+        }
+    }
+
+    /**
+     * 점수 획득 시 파티클 버스트 효과
+     */
+    spawnScoreBurst(x: number, y: number): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
+
+        const count = 8 + Math.floor(Math.random() * 5); // 8~12개
+        const colors = [0xffff00, 0xffaa00, 0xffffff, 0xffdd00]; // 노란색 계열
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+            const speed = 3 + Math.random() * 4;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = 3 + Math.random() * 2;
+            this.spawnParticle(x, y, vx, vy, color, size);
+        }
+    }
+
+    /**
      * 화면 흔들림 효과 (stage alpha 조절)
      */
     triggerScreenShake(stage: PIXI.Container): void {
@@ -227,6 +323,11 @@ export class VFXSystem {
                     particle.graphics.visible = false;
                 }
             } else if (particle.graphics) {
+                // 크기 변화 효과 (점진적으로 작아짐)
+                if (particle.scale !== undefined) {
+                    particle.scale = Math.max(0.3, particle.scale - 0.02);
+                    particle.graphics.scale.set(particle.scale);
+                }
                 particle.graphics.x = particle.x;
                 particle.graphics.y = particle.y;
                 particle.graphics.alpha = particle.alpha;
@@ -236,11 +337,14 @@ export class VFXSystem {
         // fxLayer는 항상 완전히 불투명하게 유지 (개별 효과만 페이드)
         this.fxLayer.alpha = 1.0;
 
-        // 레이어 내 모든 자식의 커스텀 업데이트 실행 (선 효과 페이드 등)
+        // 레이어 내 모든 자식의 커스텀 업데이트 실행 (선 효과 페이드, 파동 효과 등)
         if (this.fxLayer.children) {
             this.fxLayer.children.forEach(child => {
                 if ((child as any).vfxFade) {
                     (child as any).vfxFade();
+                }
+                if ((child as any).vfxRipple) {
+                    (child as any).vfxRipple();
                 }
             });
         }
