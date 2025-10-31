@@ -12,7 +12,11 @@ export class RopeSystem {
         const dx = worldClickX - playerPos.x;
         const dy = worldClickY - playerPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < 50) return;
+        if (distance < 30) {
+            console.log('[로프] 클릭 거리 너무 가까움:', distance.toFixed(1));
+            return;
+        }
+        console.log('[로프] 발사:', { distance: distance.toFixed(1), dx: dx.toFixed(1), dy: dy.toFixed(1) });
 
         const dirLen = Math.max(1e-6, distance);
         const dirX = dx / dirLen;
