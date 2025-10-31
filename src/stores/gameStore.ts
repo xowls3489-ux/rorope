@@ -144,6 +144,9 @@ export const gameActions = {
     ropeState.setKey('isActive', true);
     ropeState.setKey('isFlying', false);
     ropeState.setKey('isPulling', false);
+    // 로프 연결 시 스윙 물리 상태 리셋 (기존 각속도/각도 초기화로 가속 버그 방지)
+    playerState.setKey('swingAngle', 0);
+    playerState.setKey('angularVelocity', 0);
   },
 
   // launch rope as a projectile (grappling hook)

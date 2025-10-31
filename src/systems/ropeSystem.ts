@@ -79,6 +79,12 @@ export class RopeSystem {
             const length = Math.hypot(playerPos.x - anchorX, playerPos.y - anchorY);
             gameActions.attachRope(anchorX, anchorY, length);
             // 스윙 대신 풀링 시작
+            // 풀링 시작 시 속도 안정화 (기존 속도 유지하되 제한)
+            const currentVx = playerPos.velocityX;
+            const currentVy = playerPos.velocityY;
+            const stabilizedVx = Math.max(-8, Math.min(8, currentVx * 0.4));
+            const stabilizedVy = Math.max(-12, Math.min(12, currentVy * 0.4));
+            gameActions.updatePlayerVelocity(stabilizedVx, stabilizedVy);
             gameActions.startPull(1300);
             return;
         }
