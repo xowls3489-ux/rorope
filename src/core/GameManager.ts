@@ -119,8 +119,8 @@ export class GameManager {
         // 로프가 연결되어 있었으면 속도를 완전히 리셋 (가속 버그 방지)
         const playerPos = playerState.get();
         if (wasRopeActive) {
-            // 기존 로프가 활성화되어 있었으면 속도를 거의 0으로 리셋
-            gameActions.updatePlayerVelocity(playerPos.velocityX * 0.05, playerPos.velocityY * 0.05);
+            // 기존 로프가 활성화되어 있었으면 속도를 완전히 0으로 리셋
+            gameActions.updatePlayerVelocity(0, 0);
         } else {
             // 로프가 없었으면 기존 속도 유지 (약간 감쇠)
             const dampenedVx = playerPos.velocityX * 0.7;
@@ -451,15 +451,17 @@ export class GameManager {
             return;
         }
         
-        // 간단한 게임 오버 체크: 플레이어 Y 좌표가 너무 크면 (바닥으로 떨어짐)
-        const playerYTooLow = playerPos.y > 2000;
+        // 게임 오버 체크: 플레이어 Y 좌표 직접 체크
+        const playerYTooLow = playerPos.y > 2000; // 바닥으로 너무 떨어짐
+        const playerYTooHigh = playerPos.y < -500; // 위로 너무 솟구침
         
         // 화면 좌표 계산: world.x와 world.y는 카메라 오프셋
         const screenX = playerPos.x + this.world.x;
         const screenY = playerPos.y + this.world.y;
         
         // 게임 오버 조건:
-        // - 플레이어 Y 좌표가 3000 이상 (바닥으로 너무 떨어짐)
+        // - 플레이어 Y 좌표가 2000 이상 (바닥으로 너무 떨어짐)
+        // - 플레이어 Y 좌표가 -500 미만 (위로 너무 솟구침)
         // - 아래쪽: 화면 높이를 크게 벗어남
         const outBottom = screenY > GAME_CONFIG.height + 50;
         // - 위쪽: 화면 위로 너무 많이 나감
@@ -467,10 +469,11 @@ export class GameManager {
         // - 왼쪽: 화면 왼쪽으로 나감
         const outLeft = screenX < -50;
         
-        if (playerYTooLow || outBottom || outTop || outLeft) {
+        if (playerYTooLow || playerYTooHigh || outBottom || outTop || outLeft) {
             console.log('GAME OVER!', {
                 playerY: playerPos.y.toFixed(1),
                 playerYTooLow,
+                playerYTooHigh,
                 outBottom,
                 outTop,
                 outLeft
