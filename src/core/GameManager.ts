@@ -175,7 +175,7 @@ export class GameManager {
         let lastX = 50 + startingPlatform.width; 
         
         // 나머지 플랫폼은 애니메이션 적용 (상단부터 하단까지 다양한 높이)
-        for (let i = 0; i < 4; i++) { 
+        for (let i = 0; i < 7; i++) { // 4 -> 7개로 증가
             const gap = 250 + Math.random() * 100; 
             lastX = lastX + gap; 
             // Y 범위 확대: 100 ~ 500 (화면 상단부터 하단까지)
