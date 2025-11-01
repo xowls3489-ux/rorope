@@ -96,15 +96,7 @@ export class GameManager {
             this.shootRopeTowardPoint(event.clientX, event.clientY);
         });
         
-        this.world.on('pointerup', () => {
-            const currentState = gameState.get();
-            const rope = ropeState.get();
-            
-            // 게임 진행 중이고 풀링 중이면 로프 해제
-            if (currentState.isPlaying && rope.isPulling) {
-                this.releaseRopeFromPull();
-            }
-        });
+        // pointerup 제거 - 모바일용 (탭만으로 로프 발사)
     }
 
     private shootRopeTowardPoint(clientX: number, clientY: number): void {
