@@ -69,7 +69,7 @@ export class GameManager {
         this.player.x = -100;
         this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
-        this.scoreText = new PIXI.Text('Score: 0', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
+        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
         this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
         this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
         this.gameOverText.x = GAME_CONFIG.width / 2; this.gameOverText.y = GAME_CONFIG.height / 2; this.gameOverText.anchor.set(0.5, 0.5); this.gameOverText.visible = false; this.stage.addChild(this.gameOverText);
@@ -319,10 +319,21 @@ export class GameManager {
         this.targetWorldX = 0;
         this.world.x = 0;
         this.world.y = 0;
+        
+        // 카메라 줌 초기화
+        this.cameraZoom = 1.0;
+        this.targetCameraZoom = 1.0;
+        this.world.scale.set(1.0);
+        
         if (this.fxLayer) {
             this.fxLayer.x = 0;
             this.fxLayer.y = 0;
+            this.fxLayer.scale.set(1.0);
         }
+        
+        // hitArea 초기화
+        this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
+        
         this.updateScore();
         this.gameOverText.visible = false;
         animationSystem.fadeInUI(this.scoreText);
@@ -332,7 +343,13 @@ export class GameManager {
     public restartGameFromUI(): void { this.restartGame(); }
     private restartGame(): void { const currentPlatforms = platforms.get(); currentPlatforms.forEach(p => { this.world.removeChild(p); }); gameActions.clearPlatforms(); this.isSwingSoundPlaying = false; this.startGame(); }
 
-    private updateScore(): void { const currentState = gameState.get(); this.scoreText.text = `Score: ${currentState.score}`; animationSystem.scoreAnimation(this.scoreText); }
+    private updateScore(): void { 
+        const playerPos = playerState.get();
+        // 플레이어 X 좌표를 미터로 변환 (100px = 1m)
+        const meters = Math.floor(Math.max(0, playerPos.x) / 100);
+        this.scoreText.text = `${meters} m`;
+        animationSystem.scoreAnimation(this.scoreText);
+    }
 
     private update(): void {
         const currentState = gameState.get(); if (!currentState.isPlaying) return;
@@ -352,6 +369,7 @@ export class GameManager {
             }
             this.updateCameraZoom();
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
+            this.updateScore(); // 매 프레임마다 거리 업데이트
             vfxSystem.update(); // VFX 시스템 업데이트 (파티클 이동, fxLayer 페이드)
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
         this.checkGameOver();
@@ -480,9 +498,9 @@ export class GameManager {
         // 리바운드 거리 체크
         const reboundDist = GAME_CONFIG.grappleReboundDistance;
         
-        // 앵커에 매우 가까우면 로프 자동 해제 (착지 없음)
-        if (dist < 10) {
-            // 로프만 해제, 착지는 하지 않음
+        // 앵커에 가까워지면 자동으로 로프 해제
+        if (dist < 30) {
+            // 로프 해제
             gameActions.stopPull();
             gameActions.setSwinging(false);
             ropeState.setKey('isActive', false);
@@ -492,7 +510,7 @@ export class GameManager {
             // 카메라 줌 복구
             this.targetCameraZoom = 1.0;
             
-            // 속도를 안전하게 제한하며 자유낙하 전환
+            // 현재 속도를 안전하게 제한
             const safeVx = Math.max(-15, Math.min(15, playerPos.velocityX));
             const safeVy = Math.max(-10, Math.min(10, playerPos.velocityY));
             gameActions.updatePlayerVelocity(safeVx, safeVy);
@@ -605,8 +623,7 @@ export class GameManager {
                 // 콤보 증가 (자유낙하 착지 시에도 콤보 유지)
                 gameActions.addCombo();
                 
-                gameActions.addScore();
-                this.updateScore();
+                // 점수는 매 프레임마다 거리로 자동 업데이트됨
                 animationSystem.landingAnimation(this.player);
                 soundSystem.play('landing');
                 
