@@ -32,6 +32,8 @@ export class GameManager {
     private cameraZoom: number = 1.0;
     private targetCameraZoom: number = 1.0;
     private trailParticleCounter: number = 0;
+    private previousPlayerX: number = 0;
+    private previousPlayerY: number = 0;
     
     private getCurrentRunSpeed(): number {
         const cameraX = gameState.get().cameraX;
@@ -294,6 +296,10 @@ export class GameManager {
             this.player.isOnPlatform = true;
             this.player.platformY = playerY;
             
+            // 카메라 위치 초기화 (첫 프레임에 급격한 변화 방지)
+            this.previousPlayerX = playerX;
+            this.previousPlayerY = playerY;
+            
             // 플레이어를 렌더링 최상단으로 이동 (플랫폼 위에 보이도록)
             const playerIndex = this.world.children.indexOf(this.player);
             if (playerIndex >= 0 && playerIndex < this.world.children.length - 1) {
@@ -305,6 +311,8 @@ export class GameManager {
             this.player.y = GAME_CONFIG.height - 180;
             gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180);
             gameActions.updatePlayerVelocity(0, 0);
+            this.previousPlayerX = 100;
+            this.previousPlayerY = GAME_CONFIG.height - 180;
         }
         
         this.worldX = 0;
@@ -362,16 +370,33 @@ export class GameManager {
 
     private updateCamera(): void {
         const playerPos = playerState.get();
+        const rope = ropeState.get();
+        
+        // 플레이어 위치 변화량 계산
+        const deltaX = Math.abs(playerPos.x - this.previousPlayerX);
+        const deltaY = Math.abs(playerPos.y - this.previousPlayerY);
+        
+        // 급격한 위치 변화 감지 (착지, 순간이동 등)
+        const suddenChange = deltaX > 50 || deltaY > 50;
+        
         // 카메라가 플레이어를 따라가도록 계산 (플레이어가 화면 중앙보다 앞에 있으면 추적)
         this.targetWorldX = -(playerPos.x - this.cameraCenterX);
         // 왼쪽으로는 이동하지 않도록 제한 (게임은 오른쪽으로만 진행)
         this.targetWorldX = Math.min(this.targetWorldX, 0);
-        // 추적 속도 향상 (0.12 -> 0.25)으로 빠른 이동에도 대응
-        this.worldX += (this.targetWorldX - this.worldX) * 0.25;
+        
+        // X축 추적 속도 동적 조정
+        let cameraSpeedX = 0.15; // 기본 속도 (0.25 -> 0.15로 감소)
+        if (rope.isPulling) {
+            cameraSpeedX = 0.12; // 풀링 중에는 더 느리게 (부드럽게)
+        } else if (suddenChange) {
+            cameraSpeedX = 0.6; // 급격한 변화 시 빠르게 따라가기
+        }
+        
+        this.worldX += (this.targetWorldX - this.worldX) * cameraSpeedX;
         
         // Y축 추적 (수직)
         const viewH = GAME_CONFIG.height;
-        const deadZoneY = 100; // 150 -> 100으로 줄여서 더 민감하게 반응
+        const deadZoneY = 150; // 100 -> 150으로 증가 (더 여유있게)
         const currentWorldY = this.world.y || 0;
         let targetWorldY = currentWorldY;
         const playerScreenY = playerPos.y + currentWorldY;
@@ -395,10 +420,21 @@ export class GameManager {
             }
         }
         
-        // Y축 추적 속도 향상 (0.15 -> 0.25로 더 빠르게)
-        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.25;
+        // Y축 추적 속도 동적 조정
+        let cameraSpeedY = 0.12; // 기본 속도 (0.25 -> 0.12로 감소)
+        if (rope.isPulling) {
+            cameraSpeedY = 0.1; // 풀링 중에는 더 느리게
+        } else if (suddenChange) {
+            cameraSpeedY = 0.5; // 급격한 변화 시 빠르게 따라가기
+        }
+        
+        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * cameraSpeedY;
         this.world.x = this.worldX;
         this.world.y = newWorldY;
+        
+        // 이전 플레이어 위치 저장
+        this.previousPlayerX = playerPos.x;
+        this.previousPlayerY = playerPos.y;
         
         // hitArea를 카메라 위치에 맞춰 동적으로 업데이트
         const scale = this.world.scale.x || 1.0;
@@ -444,43 +480,23 @@ export class GameManager {
         // 리바운드 거리 체크
         const reboundDist = GAME_CONFIG.grappleReboundDistance;
         
-        // 앵커에 매우 가까우면 도착 (임계값을 작게 설정)
+        // 앵커에 매우 가까우면 로프 자동 해제 (착지 없음)
         if (dist < 10) {
-            const targetX = ropePos.anchorX;
-            const targetY = ropePos.anchorY - 15;
-            gameActions.updatePlayerPosition(targetX, targetY);
-            const runVx = this.getCurrentRunSpeed();
-            gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
+            // 로프만 해제, 착지는 하지 않음
             gameActions.stopPull();
             gameActions.setSwinging(false);
             ropeState.setKey('isActive', false);
             ropeState.setKey('isFlying', false);
             ropeState.setKey('isPulling', false);
             
-            if (this.player) {
-                this.player.isOnPlatform = true;
-                this.player.platformY = targetY;
-                this.player.visible = true;
-                this.player.alpha = 1;
-            }
-            
-            // 콤보 증가
-            gameActions.addCombo();
-            
             // 카메라 줌 복구
             this.targetCameraZoom = 1.0;
             
-            animationSystem.stopSwingAnimation(this.player);
-            animationSystem.landingAnimation(this.player);
-            soundSystem.play('landing');
-            gameActions.addScore();
-            this.updateScore();
+            // 속도를 안전하게 제한하며 자유낙하 전환
+            const safeVx = Math.max(-15, Math.min(15, playerPos.velocityX));
+            const safeVy = Math.max(-10, Math.min(10, playerPos.velocityY));
+            gameActions.updatePlayerVelocity(safeVx, safeVy);
             
-            // 이벤트: 착지 시 VFX 트리거
-            vfxSystem.spawnDustParticles(targetX, targetY, 5);
-            vfxSystem.spawnLandingRipple(targetX, targetY);
-            vfxSystem.spawnScoreBurst(targetX, targetY - 30);
-            vfxSystem.triggerScreenShake(this.stage);
             return;
         }
         
@@ -503,71 +519,17 @@ export class GameManager {
         const nextX = playerPos.x + stepX;
         const nextY = playerPos.y + stepY;
         
-        // 풀 이동 선분이 플랫폼 상단을 관통하는지 검사 → 즉시 착지로 스냅
-        const currentPlatforms = platforms.get();
-        for (const platform of currentPlatforms) {
-            const pg = platform as PlatformGraphics;
-            const left = platform.x - 5; // 여유 공간 증가
-            const right = platform.x + pg.width + 5; // 여유 공간 증가
-            const top = platform.y;
-            const targetTopY = top - 15;
-            
-            // 더 관대한 충돌 감지: 현재 위치나 다음 위치 중 하나가 플랫폼 범위 안에 있으면
-            const currentInX = playerPos.x >= left && playerPos.x <= right;
-            const nextInX = nextX >= left && nextX <= right;
-            const withinX = currentInX || nextInX;
-            
-            // 위에서 아래로 통과하는지 검사 (더 관대하게)
-            const crossesTop = playerPos.y >= targetTopY - 5 && nextY <= targetTopY + 5;
-            
-            if (crossesTop && withinX) {
-                const snapX = Math.max(left, Math.min(right, nextX)); // X를 플랫폼 범위 내로 제한
-                const snapY = targetTopY;
-                gameActions.updatePlayerPosition(snapX, snapY);
-                const runVx = this.getCurrentRunSpeed();
-                gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
-                gameActions.stopPull();
-                gameActions.setSwinging(false);
-                ropeState.setKey('isActive', false);
-                ropeState.setKey('isFlying', false);
-                ropeState.setKey('isPulling', false);
-                
-                if (this.player) {
-                    this.player.isOnPlatform = true;
-                    this.player.platformY = snapY;
-                    this.player.visible = true;
-                    this.player.alpha = 1;
-                }
-                
-                // 콤보 증가
-                gameActions.addCombo();
-                
-                // 카메라 줌 복구
-                this.targetCameraZoom = 1.0;
-                
-                animationSystem.stopSwingAnimation(this.player);
-                animationSystem.landingAnimation(this.player);
-                soundSystem.play('landing');
-                gameActions.addScore();
-                this.updateScore();
-                
-                // 이벤트: 착지 시 VFX 트리거
-                vfxSystem.spawnDustParticles(snapX, snapY, 5);
-                vfxSystem.spawnLandingRipple(snapX, snapY);
-                vfxSystem.spawnScoreBurst(snapX, snapY - 30);
-                vfxSystem.triggerScreenShake(this.stage);
-                return;
-            }
-        }
-        
+        // 플랫폼 충돌 무시 - 플레이어는 모든 플랫폼을 통과
         gameActions.updatePlayerPosition(nextX, nextY);
         // 속도 계산 수정: 방향 벡터에 속도를 곱하되, 너무 크지 않게 제한
         const velocityMagnitude = finalAccel; // 이미 계산된 가속도 사용
         const dirVx = (dx / dist) * velocityMagnitude;
         const dirVy = (dy / dist) * velocityMagnitude;
-        // 속도 제한 추가 (튕김 방지)
-        const clampedVx = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, dirVx));
-        const clampedVy = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, dirVy));
+        // 속도 제한 추가 (풀링 중에는 훨씬 작게 제한)
+        const pullMaxSpeedX = 20; // X축은 조금 여유있게
+        const pullMaxSpeedY = 10; // Y축은 매우 제한적으로 (위로 솟구치는 것 방지)
+        const clampedVx = Math.max(-pullMaxSpeedX, Math.min(pullMaxSpeedX, dirVx));
+        const clampedVy = Math.max(-pullMaxSpeedY, Math.min(pullMaxSpeedY, dirVy));
         gameActions.updatePlayerVelocity(clampedVx, clampedVy);
     }
 
@@ -599,7 +561,9 @@ export class GameManager {
             const onPlatform = currentPlatforms.find(p => { const pg = p as PlatformGraphics; const onX = playerPos.x + 15 > p.x && playerPos.x - 15 < p.x + pg.width; const onY = Math.abs(this.player!.platformY! - (p.y - 15)) <= 2; return onX && onY; });
             if (onPlatform) { const vx = this.getCurrentRunSpeed(); const newX = playerPos.x + vx; gameActions.updatePlayerPosition(newX, this.player.platformY); gameActions.updatePlayerVelocity(vx, 0); return; } else { this.player.isOnPlatform = false; this.player.platformY = undefined; }
         }
-        const gravity = GAME_CONFIG.gravity * 0.016; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); this.checkPlatformLanding();
+        const gravity = GAME_CONFIG.gravity * 0.016; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); 
+        // 자유낙하 착지 비활성화 (로프로만 착지 가능)
+        // this.checkPlatformLanding();
     }
 
     private checkPlatformLanding(): void {
@@ -618,7 +582,8 @@ export class GameManager {
             
             if (isHorizontallyAligned && isOnTop && isFallingDown && !platformCast.landed) {
                 const snapY = platform.y - 15;
-                const snapX = Math.max(left, Math.min(right, playerPos.x)); // X를 플랫폼 범위 내로 제한
+                // X는 현재 위치 유지 (강제로 플랫폼 안으로 당기지 않음)
+                const snapX = playerPos.x;
                 
                 gameActions.updatePlayerPosition(snapX, snapY);
                 const runVx = this.getCurrentRunSpeed();
