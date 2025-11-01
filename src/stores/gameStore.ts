@@ -9,6 +9,7 @@ export interface GameState {
   cameraX: number;
   lastPlatformX: number;
   gameOver: boolean;
+  combo: number; // 콤보 카운터
 }
 
 // 플레이어 상태 인터페이스
@@ -47,7 +48,8 @@ export const gameState = map<GameState>({
   score: 0,
   cameraX: 0,
   lastPlatformX: 0,
-  gameOver: false
+  gameOver: false,
+  combo: 0
 });
 
 // 플레이어 상태 스토어
@@ -89,6 +91,7 @@ export const gameActions = {
     gameState.setKey('cameraX', 0);
     gameState.setKey('lastPlatformX', 0);
     gameState.setKey('gameOver', false);
+    gameState.setKey('combo', 0);
     
     // 플레이어 위치는 플랫폼 생성 후 GameManager에서 설정
     // 여기서는 기본값만 설정 (실제 위치는 나중에 업데이트됨)
@@ -205,5 +208,14 @@ export const gameActions = {
 
   pauseGame: () => {
     gameState.setKey('isPlaying', false);
+  },
+
+  addCombo: () => {
+    const currentCombo = gameState.get().combo;
+    gameState.setKey('combo', currentCombo + 1);
+  },
+
+  resetCombo: () => {
+    gameState.setKey('combo', 0);
   }
 };

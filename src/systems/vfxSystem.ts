@@ -279,6 +279,93 @@ export class VFXSystem {
     }
 
     /**
+     * 로프 히트 플래시 (앵커 부착 시)
+     */
+    spawnRopeHitFlash(x: number, y: number): void {
+        if (!this.fxLayer) return;
+
+        // 중심 밝은 원 + 외곽 파동 효과
+        const flash = new PIXI.Graphics();
+        flash.beginFill(0xffffff, 1.0);
+        flash.drawCircle(0, 0, 8);
+        flash.endFill();
+        flash.lineStyle(2, 0xffffff, 0.8);
+        flash.drawCircle(0, 0, 12);
+        flash.x = x;
+        flash.y = y;
+        flash.alpha = 1.0;
+        this.fxLayer.addChild(flash);
+
+        // 방사형 파티클 효과
+        if (this.particles && this.particles.length > 0) {
+            const count = 6;
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count;
+                const speed = 6 + Math.random() * 4;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                const color = 0xffffff;
+                const size = 3 + Math.random() * 2;
+                this.spawnParticle(x, y, vx, vy, color, size);
+            }
+        }
+
+        // 플래시 페이드 아웃
+        let frames = 0;
+        const maxFrames = 10;
+        const flashTick = () => {
+            frames++;
+            if (!flash.parent) return;
+            
+            const progress = frames / maxFrames;
+            flash.alpha = Math.max(0, 1.0 - progress);
+            flash.scale.set(1 + progress * 2);
+
+            if (frames >= maxFrames) {
+                if (flash.parent) {
+                    this.fxLayer.removeChild(flash);
+                }
+                flash.destroy();
+            }
+        };
+
+        (flash as any).vfxFlash = flashTick;
+    }
+
+    /**
+     * 로프 트레일 파티클 (풀링 중 로프를 따라 생성)
+     */
+    spawnRopeTrailParticles(playerX: number, playerY: number, anchorX: number, anchorY: number, combo: number = 0): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
+
+        // 로프를 따라 2-3개의 파티클 생성
+        const count = 2 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < count; i++) {
+            const t = Math.random(); // 로프 상의 위치 (0 = 플레이어, 1 = 앵커)
+            const x = playerX + (anchorX - playerX) * t;
+            const y = playerY + (anchorY - playerY) * t;
+            
+            // 로프에 수직인 방향으로 약간 퍼지는 속도
+            const dx = anchorX - playerX;
+            const dy = anchorY - playerY;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const perpX = -dy / len;
+            const perpY = dx / len;
+            
+            const speed = 1 + Math.random() * 2;
+            const vx = perpX * speed * (Math.random() - 0.5) * 2;
+            const vy = perpY * speed * (Math.random() - 0.5) * 2;
+            
+            // 콤보가 높을수록 밝은 색상
+            const brightness = Math.min(255, 200 + combo * 10);
+            const color = (brightness << 16) | (brightness << 8) | brightness;
+            const size = 2 + Math.random() * 1.5;
+            
+            this.spawnParticle(x, y, vx, vy, color, size);
+        }
+    }
+
+    /**
      * 화면 흔들림 효과 (stage alpha 조절)
      */
     triggerScreenShake(stage: PIXI.Container): void {
@@ -345,6 +432,9 @@ export class VFXSystem {
                 }
                 if ((child as any).vfxRipple) {
                     (child as any).vfxRipple();
+                }
+                if ((child as any).vfxFlash) {
+                    (child as any).vfxFlash();
                 }
             });
         }

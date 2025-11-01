@@ -29,6 +29,9 @@ export class GameManager {
     private landingGraceFrames: number = 0;
     private readonly maxSpeedX: number = 18;
     private readonly maxSpeedY: number = 80;
+    private cameraZoom: number = 1.0;
+    private targetCameraZoom: number = 1.0;
+    private trailParticleCounter: number = 0;
     
     private getCurrentRunSpeed(): number {
         const cameraX = gameState.get().cameraX;
@@ -47,7 +50,9 @@ export class GameManager {
         this.stage = this.app.stage;
         this.bgLayer = new PIXI.Container(); this.bgLayer.name = 'bgLayer'; this.stage.addChildAt(this.bgLayer, 0);
         this.world = new PIXI.Container(); this.world.name = 'world'; this.stage.addChild(this.world);
-        ;(this.world as any).eventMode = 'static'; this.world.interactive = true; this.world.hitArea = new PIXI.Rectangle(-10000, -10000, 20000, 20000);
+        ;(this.world as any).eventMode = 'static'; this.world.interactive = true; 
+        // hitArea를 매우 크게 설정 (게임이 오른쪽으로 계속 진행되므로)
+        this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
         this.fxLayer = vfxSystem.initialize(this.stage); // FX 레이어 초기화 및 추가
         this.initBackground(); this.initGameObjects(); this.initInput();
         this.app.ticker.add(this.update.bind(this)); this.app.ticker.maxFPS = 60;
@@ -85,12 +90,17 @@ export class GameManager {
                 return;
             }
             
-            // 게임 진행 중: 로프가 스윙 중이면 해제만
-            if (currentState.isSwinging) {
-                this.releaseRope();
-            } else {
-                // 스윙 중이 아니면 새 로프 발사
-                this.shootRopeTowardPoint(event.clientX, event.clientY);
+            // 게임 진행 중: 로프 발사
+            this.shootRopeTowardPoint(event.clientX, event.clientY);
+        });
+        
+        this.world.on('pointerup', () => {
+            const currentState = gameState.get();
+            const rope = ropeState.get();
+            
+            // 게임 진행 중이고 풀링 중이면 로프 해제
+            if (currentState.isPlaying && rope.isPulling) {
+                this.releaseRopeFromPull();
             }
         });
     }
@@ -116,25 +126,33 @@ export class GameManager {
         }
         // 스윙 물리 상태 리셋 (기존 각속도/각도 초기화)
         gameActions.updateSwingPhysics(0, 0);
-        // 로프가 연결되어 있었으면 속도를 완전히 리셋 (가속 버그 방지)
+        
+        // 로프 발사 시 항상 속도를 안전하게 리셋
         const playerPos = playerState.get();
+        const onPlatform = this.player?.isOnPlatform || false;
+        
         if (wasRopeActive) {
             // 기존 로프가 활성화되어 있었으면 속도를 완전히 0으로 리셋
             gameActions.updatePlayerVelocity(0, 0);
+        } else if (onPlatform) {
+            // 플랫폼에서 로프 발사 시 속도를 0으로 리셋 (안전)
+            gameActions.updatePlayerVelocity(0, 0);
         } else {
-            // 로프가 없었으면 기존 속도 유지 (약간 감쇠)
-            const dampenedVx = playerPos.velocityX * 0.7;
-            const dampenedVy = playerPos.velocityY * 0.7;
-            gameActions.updatePlayerVelocity(dampenedVx, dampenedVy);
+            // 공중에서 로프 발사 시에만 기존 속도를 유지하되 제한
+            const clampedVx = Math.max(-10, Math.min(10, playerPos.velocityX * 0.5));
+            const clampedVy = Math.max(-15, Math.min(15, playerPos.velocityY * 0.5));
+            gameActions.updatePlayerVelocity(clampedVx, clampedVy);
         }
+        
         ropeSystem.launchFromClick(this.app, this.world, clientX, clientY);
         if (this.player) { this.player.isOnPlatform = false; }
         soundSystem.play('ropeShoot');
         
         // 로프 발사 시 스파크 효과
         const rect = (this.app.view as HTMLCanvasElement).getBoundingClientRect();
-        const worldClickX = clientX - rect.left - this.world.x;
-        const worldClickY = clientY - rect.top - this.world.y;
+        const scale = this.world.scale.x || 1.0;
+        const worldClickX = (clientX - rect.left - this.world.x) / scale;
+        const worldClickY = (clientY - rect.top - this.world.y) / scale;
         const dx = worldClickX - playerPos.x;
         const dy = worldClickY - playerPos.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -146,21 +164,42 @@ export class GameManager {
         }
     }
 
-    private releaseRope(): void {
-        const currentState = gameState.get(); if (!currentState.isSwinging) return;
-        gameActions.setSwinging(false);
-        ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false);
-        const playerPos = playerState.get(); const ropePos = ropeState.get(); const ropeLength = Math.max(1, ropePos.length || GAME_CONFIG.ropeLength);
-        const swingSpeed = Math.sqrt(playerPos.angularVelocity * playerPos.angularVelocity * ropeLength);
-        let velocityX = Math.sin(playerPos.swingAngle) * swingSpeed; let velocityY = Math.cos(playerPos.swingAngle) * swingSpeed;
-        // 속도 캡
-        velocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, velocityX));
-        velocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, velocityY));
+    private releaseRopeFromPull(): void {
+        const playerPos = playerState.get();
+        const ropePos = ropeState.get();
+        
+        // 현재 속도에 모멘텀 부스트 적용
+        const boostFactor = GAME_CONFIG.grappleMomentumBoost;
+        let velocityX = playerPos.velocityX * boostFactor;
+        let velocityY = playerPos.velocityY * boostFactor;
+        
+        // 속도 캡 (더 안전하게)
+        const safeMaxSpeedX = 15; // 18 -> 15로 감소
+        const safeMaxSpeedY = 5; // 25 -> 5로 감소 (위로 튕기는 것 방지)
+        velocityX = Math.max(-safeMaxSpeedX, Math.min(safeMaxSpeedX, velocityX));
+        velocityY = Math.max(-safeMaxSpeedY, Math.min(safeMaxSpeedY, velocityY));
+        
         gameActions.updatePlayerVelocity(velocityX, velocityY);
-        animationSystem.ropeReleaseAnimation(this.player, this.rope); soundSystem.play('ropeRelease');
+        
+        // 로프 상태 리셋
+        gameActions.setSwinging(false);
+        ropeState.setKey('isActive', false);
+        ropeState.setKey('isFlying', false);
+        ropeState.setKey('isPulling', false);
+        
+        // 카메라 줌 복구
+        this.targetCameraZoom = 1.0;
+        
+        animationSystem.ropeReleaseAnimation(this.player, this.rope);
+        soundSystem.play('ropeRelease');
         
         // 이벤트: 로프 해제 시 파티클 효과
         vfxSystem.spawnReleaseParticles(playerPos.x, playerPos.y, velocityX, velocityY);
+    }
+    
+    private releaseRope(): void {
+        // 레거시 스윙 릴리즈 (사용하지 않음, 호환성 유지)
+        this.releaseRopeFromPull();
     }
 
     private createPlatform(x: number, y: number): PlatformGraphics { const platform = new PIXI.Graphics() as PlatformGraphics; const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); platform.beginFill(COLORS.primary); platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); platform.endFill(); platform.x = x; platform.y = y; platform.width = width; platform.height = GAME_CONFIG.platformHeight; this.world.addChild(platform); gameActions.addPlatform(platform); animationSystem.platformSpawnAnimation(platform); return platform; }
@@ -290,7 +329,20 @@ export class GameManager {
     private update(): void {
         const currentState = gameState.get(); if (!currentState.isPlaying) return;
         try {
-            const rope = ropeState.get(); if (rope.isFlying) { ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); this.updateFreeFallPhysics(); } else if (rope.isPulling) { this.updatePullToAnchor(); } else if (currentState.isSwinging) { this.updateSwingPhysics(); } else { this.updateFreeFallPhysics(); }
+            const rope = ropeState.get(); 
+            if (rope.isFlying) { 
+                ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); 
+                this.updateFreeFallPhysics(); 
+            } else if (rope.isPulling) { 
+                this.updatePullToAnchor(); 
+                // 풀링 중 카메라 줌인
+                this.targetCameraZoom = GAME_CONFIG.grappleCameraZoom;
+            } else { 
+                this.updateFreeFallPhysics(); 
+                // 풀링 중이 아니면 카메라 줌 복구
+                this.targetCameraZoom = 1.0;
+            }
+            this.updateCameraZoom();
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
             vfxSystem.update(); // VFX 시스템 업데이트 (파티클 이동, fxLayer 페이드)
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
@@ -298,6 +350,15 @@ export class GameManager {
     }
 
     private updatePlayerGraphics(): void { if (!this.player) return; const playerPos = playerState.get(); this.player.x = playerPos.x; this.player.y = playerPos.y; this.player.visible = true; this.player.alpha = 1; try { (this.player as any).scale?.set?.(1, 1); } catch {} }
+
+    private updateCameraZoom(): void {
+        // 카메라 줌 스무스 전환
+        this.cameraZoom += (this.targetCameraZoom - this.cameraZoom) * 0.1;
+        this.world.scale.set(this.cameraZoom);
+        if (this.fxLayer) {
+            this.fxLayer.scale.set(this.cameraZoom);
+        }
+    }
 
     private updateCamera(): void {
         const playerPos = playerState.get();
@@ -338,6 +399,15 @@ export class GameManager {
         const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * 0.25;
         this.world.x = this.worldX;
         this.world.y = newWorldY;
+        
+        // hitArea를 카메라 위치에 맞춰 동적으로 업데이트
+        const scale = this.world.scale.x || 1.0;
+        const hitAreaX = -this.worldX / scale - 1000;
+        const hitAreaY = -newWorldY / scale - 1000;
+        const hitAreaWidth = GAME_CONFIG.width / scale + 2000;
+        const hitAreaHeight = GAME_CONFIG.height / scale + 2000;
+        this.world.hitArea = new PIXI.Rectangle(hitAreaX, hitAreaY, hitAreaWidth, hitAreaHeight);
+        
         // fxLayer 위치도 world와 동기화 (카메라 이동 반영)
         if (this.fxLayer) {
             this.fxLayer.x = this.worldX;
@@ -349,40 +419,181 @@ export class GameManager {
     private updateBackground(): void { const scrollX = this.worldX * this.bgSpeed; for (let i = 0; i < this.bgTiles.length; i++) { const tile = this.bgTiles[i]; const baseX = (i % 2) * this.bgTileWidth; tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); } }
 
     private updatePullToAnchor(): void {
-        const ropePos = ropeState.get(); const playerPos = playerState.get(); const dt = 0.016; const speed = ropePos.pullSpeed || 1200; const dx = ropePos.anchorX - playerPos.x; const dy = ropePos.anchorY - playerPos.y; const dist = Math.hypot(dx, dy);
-        if (dist < Math.max(1, speed * dt)) { const targetX = ropePos.anchorX; const targetY = ropePos.anchorY - 15; gameActions.updatePlayerPosition(targetX, targetY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = targetY; this.player.visible = true; this.player.alpha = 1; } animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
+        const ropePos = ropeState.get();
+        const playerPos = playerState.get();
+        const game = gameState.get();
+        const dt = 0.016;
+        
+        // 콤보에 따른 풀 속도 증가
+        const combo = game.combo || 0;
+        const baseSpeed = GAME_CONFIG.grappleBasePullSpeed;
+        const comboBonus = combo * GAME_CONFIG.grappleComboSpeedBonus;
+        const speed = baseSpeed + comboBonus;
+        
+        const dx = ropePos.anchorX - playerPos.x;
+        const dy = ropePos.anchorY - playerPos.y;
+        const dist = Math.hypot(dx, dy);
+        
+        // 로프 트레일 파티클 생성 (매 프레임마다가 아니라 간헐적으로)
+        this.trailParticleCounter++;
+        if (this.trailParticleCounter >= 3) {
+            this.trailParticleCounter = 0;
+            vfxSystem.spawnRopeTrailParticles(playerPos.x, playerPos.y, ropePos.anchorX, ropePos.anchorY, combo);
+        }
+        
+        // 리바운드 거리 체크
+        const reboundDist = GAME_CONFIG.grappleReboundDistance;
+        
+        // 앵커에 매우 가까우면 도착 (임계값을 작게 설정)
+        if (dist < 10) {
+            const targetX = ropePos.anchorX;
+            const targetY = ropePos.anchorY - 15;
+            gameActions.updatePlayerPosition(targetX, targetY);
+            const runVx = this.getCurrentRunSpeed();
+            gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
+            gameActions.stopPull();
+            gameActions.setSwinging(false);
+            ropeState.setKey('isActive', false);
+            ropeState.setKey('isFlying', false);
+            ropeState.setKey('isPulling', false);
+            
+            if (this.player) {
+                this.player.isOnPlatform = true;
+                this.player.platformY = targetY;
+                this.player.visible = true;
+                this.player.alpha = 1;
+            }
+            
+            // 콤보 증가
+            gameActions.addCombo();
+            
+            // 카메라 줌 복구
+            this.targetCameraZoom = 1.0;
+            
+            animationSystem.stopSwingAnimation(this.player);
+            animationSystem.landingAnimation(this.player);
+            soundSystem.play('landing');
+            gameActions.addScore();
+            this.updateScore();
+            
             // 이벤트: 착지 시 VFX 트리거
             vfxSystem.spawnDustParticles(targetX, targetY, 5);
             vfxSystem.spawnLandingRipple(targetX, targetY);
-            vfxSystem.spawnScoreBurst(targetX, targetY - 30); // 점수 위치에 버스트
+            vfxSystem.spawnScoreBurst(targetX, targetY - 30);
             vfxSystem.triggerScreenShake(this.stage);
-            return; }
-        const stepX = (dx / dist) * speed * dt; const stepY = (dy / dist) * speed * dt; const nextX = playerPos.x + stepX; const nextY = playerPos.y + stepY;
+            return;
+        }
+        
+        // 이징 적용 (거리에 비례하여 부드럽게 가속/감속)
+        const easingFactor = GAME_CONFIG.grappleEasingFactor;
+        const pullForce = dist * easingFactor;
+        // 최소 속도 보장: 거리가 멀어도 최소한 speed의 70%는 유지
+        const minSpeed = speed * 0.7;
+        const acceleration = Math.max(minSpeed, Math.min(speed, pullForce));
+        
+        // 리바운드 효과 (앵커 근처에서 약간 튕기는 효과)
+        let finalAccel = acceleration;
+        if (dist < reboundDist) {
+            const reboundFactor = 1.0 - (dist / reboundDist) * 0.2; // 0.3 -> 0.2로 약화
+            finalAccel *= reboundFactor;
+        }
+        
+        const stepX = (dx / dist) * finalAccel * dt;
+        const stepY = (dy / dist) * finalAccel * dt;
+        const nextX = playerPos.x + stepX;
+        const nextY = playerPos.y + stepY;
+        
         // 풀 이동 선분이 플랫폼 상단을 관통하는지 검사 → 즉시 착지로 스냅
         const currentPlatforms = platforms.get();
         for (const platform of currentPlatforms) {
-            const pg = platform as PlatformGraphics; const left = platform.x; const right = platform.x + pg.width; const top = platform.y; const targetTopY = top - 15;
-            const crossesTop = playerPos.y > targetTopY && nextY <= targetTopY; const withinX = (Math.max(playerPos.x, nextX) >= left - 14) && (Math.min(playerPos.x, nextX) <= right + 14);
+            const pg = platform as PlatformGraphics;
+            const left = platform.x - 5; // 여유 공간 증가
+            const right = platform.x + pg.width + 5; // 여유 공간 증가
+            const top = platform.y;
+            const targetTopY = top - 15;
+            
+            // 더 관대한 충돌 감지: 현재 위치나 다음 위치 중 하나가 플랫폼 범위 안에 있으면
+            const currentInX = playerPos.x >= left && playerPos.x <= right;
+            const nextInX = nextX >= left && nextX <= right;
+            const withinX = currentInX || nextInX;
+            
+            // 위에서 아래로 통과하는지 검사 (더 관대하게)
+            const crossesTop = playerPos.y >= targetTopY - 5 && nextY <= targetTopY + 5;
+            
             if (crossesTop && withinX) {
-                const snapX = nextX; const snapY = targetTopY; gameActions.updatePlayerPosition(snapX, snapY); const runVx = this.getCurrentRunSpeed(); gameActions.updatePlayerVelocity(runVx, 0); gameActions.stopPull(); gameActions.setSwinging(false); ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false); if (this.player) { this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1; }
-                animationSystem.stopSwingAnimation(this.player); animationSystem.landingAnimation(this.player); soundSystem.play('landing'); gameActions.addScore(); this.updateScore();
+                const snapX = Math.max(left, Math.min(right, nextX)); // X를 플랫폼 범위 내로 제한
+                const snapY = targetTopY;
+                gameActions.updatePlayerPosition(snapX, snapY);
+                const runVx = this.getCurrentRunSpeed();
+                gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
+                gameActions.stopPull();
+                gameActions.setSwinging(false);
+                ropeState.setKey('isActive', false);
+                ropeState.setKey('isFlying', false);
+                ropeState.setKey('isPulling', false);
+                
+                if (this.player) {
+                    this.player.isOnPlatform = true;
+                    this.player.platformY = snapY;
+                    this.player.visible = true;
+                    this.player.alpha = 1;
+                }
+                
+                // 콤보 증가
+                gameActions.addCombo();
+                
+                // 카메라 줌 복구
+                this.targetCameraZoom = 1.0;
+                
+                animationSystem.stopSwingAnimation(this.player);
+                animationSystem.landingAnimation(this.player);
+                soundSystem.play('landing');
+                gameActions.addScore();
+                this.updateScore();
+                
                 // 이벤트: 착지 시 VFX 트리거
                 vfxSystem.spawnDustParticles(snapX, snapY, 5);
                 vfxSystem.spawnLandingRipple(snapX, snapY);
-                vfxSystem.spawnScoreBurst(snapX, snapY - 30); // 점수 위치에 버스트
+                vfxSystem.spawnScoreBurst(snapX, snapY - 30);
                 vfxSystem.triggerScreenShake(this.stage);
                 return;
             }
         }
-        gameActions.updatePlayerPosition(nextX, nextY); gameActions.updatePlayerVelocity(stepX / dt, stepY / dt);
+        
+        gameActions.updatePlayerPosition(nextX, nextY);
+        // 속도 계산 수정: 방향 벡터에 속도를 곱하되, 너무 크지 않게 제한
+        const velocityMagnitude = finalAccel; // 이미 계산된 가속도 사용
+        const dirVx = (dx / dist) * velocityMagnitude;
+        const dirVy = (dy / dist) * velocityMagnitude;
+        // 속도 제한 추가 (튕김 방지)
+        const clampedVx = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, dirVx));
+        const clampedVy = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, dirVy));
+        gameActions.updatePlayerVelocity(clampedVx, clampedVy);
     }
 
     private updateSwingPhysics(): void {
-        const playerPos = playerState.get(); const ropePos = ropeState.get(); const dt = 0.016; const ropeLength = Math.max(1, ropePos.length || GAME_CONFIG.ropeLength); const gravityForce = -GAME_CONFIG.gravity / ropeLength * Math.sin(playerPos.swingAngle); const dampingForce = -playerPos.angularVelocity * 0.995; const angularAcceleration = gravityForce + dampingForce; const newAngularVelocity = playerPos.angularVelocity + angularAcceleration * dt; const newSwingAngle = playerPos.swingAngle + newAngularVelocity * dt; const newX = ropePos.anchorX + Math.sin(newSwingAngle) * ropeLength; const newY = ropePos.anchorY + Math.cos(newSwingAngle) * ropeLength; gameActions.updatePlayerPosition(newX, newY); gameActions.updateSwingPhysics(newSwingAngle, newAngularVelocity); if (Math.abs(newAngularVelocity) > 0.5 && !this.isSwingSoundPlaying) { soundSystem.play('swing'); this.isSwingSoundPlaying = true; } else if (Math.abs(newAngularVelocity) <= 0.3) { this.isSwingSoundPlaying = false; } animationSystem.swingAnimation(this.player); this.checkPlatformLanding();
+        // 스윙 물리는 그래플링 후크 시스템으로 대체되어 더 이상 사용되지 않음
+        // 호환성 유지를 위해 메서드는 남겨두되 프리폴로 전환
+        this.updateFreeFallPhysics();
     }
 
     private updateFreeFallPhysics(): void {
         const playerPos = playerState.get();
+        const rope = ropeState.get();
+        
+        // 공중에서 로프가 활성화되지 않은 상태가 일정 시간 이상 지속되면 콤보 리셋
+        if (!this.player?.isOnPlatform && !rope.isActive && !rope.isFlying && !rope.isPulling) {
+            // 공중에서 자유낙하 중이면서 플랫폼에서 떨어진 경우
+            // 속도가 너무 빨라지거나 너무 오래 떨어지면 콤보 리셋
+            if (playerPos.velocityY > 30) {
+                // 일정 속도 이상 낙하 중이면 콤보 리셋 (실패로 간주)
+                const game = gameState.get();
+                if (game.combo > 0) {
+                    gameActions.resetCombo();
+                }
+            }
+        }
+        
         if (this.player && this.player.isOnPlatform && this.player.platformY !== undefined) {
             const currentPlatforms = platforms.get();
             const onPlatform = currentPlatforms.find(p => { const pg = p as PlatformGraphics; const onX = playerPos.x + 15 > p.x && playerPos.x - 15 < p.x + pg.width; const onY = Math.abs(this.player!.platformY! - (p.y - 15)) <= 2; return onX && onY; });
@@ -392,27 +603,56 @@ export class GameManager {
     }
 
     private checkPlatformLanding(): void {
-        const currentPlatforms = platforms.get(); const playerPos = playerState.get();
-        currentPlatforms.forEach(platform => {
-            const platformCast = platform as PlatformGraphics; const isHorizontallyAligned = playerPos.x + 14 > platform.x && playerPos.x - 14 < platform.x + platformCast.width; const platformTop = platform.y; const playerBottom = playerPos.y + 15; const isOnTop = playerBottom >= platformTop - 4 && playerBottom <= platformTop + 10; const isFallingDown = playerPos.velocityY > 0.2;
+        const currentPlatforms = platforms.get();
+        const playerPos = playerState.get();
+        
+        for (const platform of currentPlatforms) {
+            const platformCast = platform as PlatformGraphics;
+            const left = platform.x - 5;
+            const right = platform.x + platformCast.width + 5;
+            const isHorizontallyAligned = playerPos.x >= left && playerPos.x <= right;
+            const platformTop = platform.y;
+            const playerBottom = playerPos.y + 15;
+            const isOnTop = playerBottom >= platformTop - 4 && playerBottom <= platformTop + 10;
+            const isFallingDown = playerPos.velocityY > 0.2;
+            
             if (isHorizontallyAligned && isOnTop && isFallingDown && !platformCast.landed) {
                 const snapY = platform.y - 15;
-                gameActions.updatePlayerPosition(playerPos.x, snapY);
+                const snapX = Math.max(left, Math.min(right, playerPos.x)); // X를 플랫폼 범위 내로 제한
+                
+                gameActions.updatePlayerPosition(snapX, snapY);
                 const runVx = this.getCurrentRunSpeed();
-                gameActions.updatePlayerVelocity(runVx, 0);
+                gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
                 gameActions.setSwinging(false);
-                ropeState.setKey('isActive', false); ropeState.setKey('isFlying', false); ropeState.setKey('isPulling', false);
-                if (!this.player) return; this.player.isOnPlatform = true; this.player.platformY = snapY; this.player.visible = true; this.player.alpha = 1;
-                platformCast.landed = true; this.landingGraceFrames = 12;
-                gameActions.addScore(); this.updateScore(); animationSystem.landingAnimation(this.player); soundSystem.play('landing');
+                ropeState.setKey('isActive', false);
+                ropeState.setKey('isFlying', false);
+                ropeState.setKey('isPulling', false);
+                
+                if (!this.player) return;
+                this.player.isOnPlatform = true;
+                this.player.platformY = snapY;
+                this.player.visible = true;
+                this.player.alpha = 1;
+                
+                platformCast.landed = true;
+                this.landingGraceFrames = 12;
+                
+                // 콤보 증가 (자유낙하 착지 시에도 콤보 유지)
+                gameActions.addCombo();
+                
+                gameActions.addScore();
+                this.updateScore();
+                animationSystem.landingAnimation(this.player);
+                soundSystem.play('landing');
                 
                 // 이벤트: 착지 시 VFX 트리거
-                vfxSystem.spawnDustParticles(playerPos.x, snapY, 5);
-                vfxSystem.spawnLandingRipple(playerPos.x, snapY);
-                vfxSystem.spawnScoreBurst(playerPos.x, snapY - 30); // 점수 위치에 버스트
+                vfxSystem.spawnDustParticles(snapX, snapY, 5);
+                vfxSystem.spawnLandingRipple(snapX, snapY);
+                vfxSystem.spawnScoreBurst(snapX, snapY - 30);
                 vfxSystem.triggerScreenShake(this.stage);
+                return; // 착지했으면 루프 종료
             }
-        });
+        }
     }
 
     private managePlatforms(): void {
@@ -479,6 +719,7 @@ export class GameManager {
                 outLeft
             });
             gameActions.endGame();
+            gameActions.resetCombo(); // 게임 오버 시 콤보 리셋
             this.gameOverText.visible = true;
             animationSystem.gameOverAnimation(this.gameOverText);
             soundSystem.play('gameOver');

@@ -1,13 +1,16 @@
 import * as PIXI from 'pixi.js';
-import { gameActions, playerState, ropeState, platforms } from '../stores/gameStore';
+import { gameActions, playerState, ropeState, platforms, gameState } from '../stores/gameStore';
 import { vfxSystem } from './vfxSystem';
 
 export class RopeSystem {
     launchFromClick(app: PIXI.Application, world: PIXI.Container, clientX: number, clientY: number, shootSpeed: number = 2200, maxLength: number = 700): void {
         const playerPos = playerState.get();
         const rect = (app.view as HTMLCanvasElement).getBoundingClientRect();
-        const worldClickX = clientX - rect.left - world.x;
-        const worldClickY = clientY - rect.top - world.y;
+        
+        // 카메라 스케일 고려한 좌표 변환
+        const scale = world.scale.x || 1.0;
+        const worldClickX = (clientX - rect.left - world.x) / scale;
+        const worldClickY = (clientY - rect.top - world.y) / scale;
 
         const dx = worldClickX - playerPos.x;
         const dy = worldClickY - playerPos.y;
@@ -16,7 +19,7 @@ export class RopeSystem {
             console.log('[로프] 클릭 거리 너무 가까움:', distance.toFixed(1));
             return;
         }
-        console.log('[로프] 발사:', { distance: distance.toFixed(1), dx: dx.toFixed(1), dy: dy.toFixed(1) });
+        console.log('[로프] 발사:', { distance: distance.toFixed(1), dx: dx.toFixed(1), dy: dy.toFixed(1), worldX: world.x.toFixed(1), scale: scale.toFixed(2) });
 
         const dirLen = Math.max(1e-6, distance);
         const dirX = dx / dirLen;
@@ -83,17 +86,15 @@ export class RopeSystem {
             const anchorY = hitPoint.y;
             const length = Math.hypot(playerPos.x - anchorX, playerPos.y - anchorY);
             gameActions.attachRope(anchorX, anchorY, length);
-            // 스윙 대신 풀링 시작
-            // 풀링 시작 시 속도 안정화 (기존 속도 유지하되 제한)
-            const currentVx = playerPos.velocityX;
-            const currentVy = playerPos.velocityY;
-            const stabilizedVx = Math.max(-8, Math.min(8, currentVx * 0.4));
-            const stabilizedVy = Math.max(-12, Math.min(12, currentVy * 0.4));
-            gameActions.updatePlayerVelocity(stabilizedVx, stabilizedVy);
+            
+            // 풀링 시작 시 속도를 0으로 리셋 (안전)
+            // 풀링 로직이 속도를 올바르게 계산할 것임
+            gameActions.updatePlayerVelocity(0, 0);
             gameActions.startPull(1300);
             
             // 이벤트: 로프 연결 시 VFX 트리거
             vfxSystem.drawRopeAttachLine(playerPos.x, playerPos.y, anchorX, anchorY);
+            vfxSystem.spawnRopeHitFlash(anchorX, anchorY);
             
             return;
         }
@@ -104,6 +105,7 @@ export class RopeSystem {
     drawRope(graphics: PIXI.Graphics, ropeColor: number = 0xFFFFFF): void {
         const rope = ropeState.get();
         const playerPos = playerState.get();
+        const game = gameState.get();
 
         // 로프 가시성/알파 복구 (애니메이션에서 0으로 바뀐 경우 대비)
         const shouldShow = !!(rope.isFlying || rope.isActive);
@@ -121,25 +123,31 @@ export class RopeSystem {
 
         graphics.clear();
         
+        // 콤보에 따른 색상 밝기 증가
+        const combo = game.combo || 0;
+        const brightness = Math.min(255, 255 - combo * 5); // 콤보가 높을수록 밝아짐 (역으로 계산)
+        const comboBrightness = Math.min(255, 200 + combo * 10); // 0-255 범위
+        const comboColor = (comboBrightness << 16) | (comboBrightness << 8) | comboBrightness;
+        
         // 이중 라인 효과 (필터 없이): 외곽선 + 중심선
         if (rope.isFlying) {
             const tipX = rope.tipX ?? playerPos.x;
             const tipY = rope.tipY ?? playerPos.y;
             // 외곽선 (넓고 투명)
-            graphics.lineStyle(6, ropeColor, 0.1);
+            graphics.lineStyle(6, comboColor, 0.15 + combo * 0.02);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(tipX, tipY);
             // 중심선 (얇고 선명)
-            graphics.lineStyle(2, ropeColor, 1);
+            graphics.lineStyle(2, comboColor, 1);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(tipX, tipY);
         } else if (rope.isActive) {
             // 외곽선 (넓고 투명)
-            graphics.lineStyle(6, ropeColor, 0.1);
+            graphics.lineStyle(6, comboColor, 0.15 + combo * 0.02);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(rope.anchorX, rope.anchorY);
             // 중심선 (얇고 선명)
-            graphics.lineStyle(2, ropeColor, 1);
+            graphics.lineStyle(2, comboColor, 1);
             graphics.moveTo(playerPos.x, playerPos.y);
             graphics.lineTo(rope.anchorX, rope.anchorY);
         }
