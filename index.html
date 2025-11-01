@@ -2,19 +2,37 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>바밧줄</title>
     <style>
-        body {
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        html, body {
+            position: fixed;
+            width: 100%;
+            height: 100%;
             margin: 0;
             padding: 0;
             background: #000;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            touch-action: none;
         }
+        
         canvas {
             display: block;
+            touch-action: none;
         }
+        
         /* 개별 씬 루트는 항상 전체 화면 */
         #title-root,
         #game-root {
@@ -23,7 +41,9 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            touch-action: none;
         }
+        
         /* 항상 하나만 보이도록 */
         #game-root {
             display: none;

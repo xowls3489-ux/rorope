@@ -25,3 +25,17 @@ pnpm-lock.yaml
 # Env
 .env
 .env.*
+
+# Capacitor
+android/app/build/
+android/app/release/
+android/.gradle/
+android/.idea/
+android/local.properties
+*.keystore
+*.jks
+
+# iOS
+ios/App/Pods/
+ios/App/build/
+ios/App/App.xcworkspace/
