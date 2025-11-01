@@ -1,4 +1,4 @@
-package com.rorope.game;
+package com.retrying.rorope;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">바밧줄</string>
     <string name="title_activity_main">바밧줄</string>
-    <string name="package_name">com.rorope.game</string>
-    <string name="custom_url_scheme">com.rorope.game</string>
+    <string name="package_name">com.retrying.rorope</string>
+    <string name="custom_url_scheme">com.retrying.rorope</string>
 </resources>
