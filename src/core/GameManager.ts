@@ -20,8 +20,11 @@ export class GameManager {
     private scoreText!: PIXI.Text;
     private gameOverText!: PIXI.Text;
     private isSwingSoundPlaying: boolean = false;
+    private cameraCenterX: number = GAME_CONFIG.width * 0.35;
+    private worldX: number = 0;
+    private targetWorldX: number = 0;
     private bgTiles: PIXI.Graphics[] = [];
-    private bgTileWidth: number = 800; // 게임 width와 동일
+    private bgTileWidth: number = 800;
     private bgSpeed: number = 0.4;
     private landingGraceFrames: number = 0;
     private readonly maxSpeedX: number = 18;
@@ -29,12 +32,12 @@ export class GameManager {
     private cameraZoom: number = 1.0;
     private targetCameraZoom: number = 1.0;
     private trailParticleCounter: number = 0;
-    // 스크롤 방식 변수
-    private scrollOffsetX: number = 0; // 누적 스크롤 거리 (플레이어가 "이동한" 거리)
+    private previousPlayerX: number = 0;
+    private previousPlayerY: number = 0;
     
     private getCurrentRunSpeed(): number {
-        // 스크롤 방식: scrollOffsetX 사용
-        const distance = Math.max(0, this.scrollOffsetX);
+        const cameraX = gameState.get().cameraX;
+        const distance = Math.max(0, cameraX);
         const speedIncrease = distance * GAME_CONFIG.runSpeedIncreasePerDistance;
         const currentSpeed = GAME_CONFIG.runSpeed + speedIncrease;
         return Math.min(currentSpeed, GAME_CONFIG.runSpeedMax);
@@ -43,23 +46,9 @@ export class GameManager {
     constructor() { this.init(); }
 
     private async init(): Promise<void> {
-        // 게임 로직은 고정 해상도 (1920x1080)
-        this.app = new PIXI.Application({ 
-            width: GAME_CONFIG.width, 
-            height: GAME_CONFIG.height, 
-            backgroundColor: COLORS.background, 
-            antialias: true,
-            autoDensity: true,
-            resolution: window.devicePixelRatio || 1
-        });
-        
+        this.app = new PIXI.Application({ width: GAME_CONFIG.width, height: GAME_CONFIG.height, backgroundColor: COLORS.background, resizeTo: window, antialias: true });
         const gameRoot = document.getElementById('game-root');
         (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
-        
-        // 화면 크기에 맞게 스케일링
-        this.handleResize();
-        window.addEventListener('resize', () => this.handleResize());
-        
         this.stage = this.app.stage;
         this.bgLayer = new PIXI.Container(); this.bgLayer.name = 'bgLayer'; this.stage.addChildAt(this.bgLayer, 0);
         this.world = new PIXI.Container(); this.world.name = 'world'; this.stage.addChild(this.world);
@@ -74,34 +63,25 @@ export class GameManager {
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
     private initGameObjects(): void {
-        this.player = new PIXI.Graphics() as PlayerGraphics; 
-        this.player.beginFill(0xFFFFFF); 
-        this.player.drawCircle(0, 0, 15);
-        this.player.endFill(); 
-        this.world.addChild(this.player);
+        this.player = new PIXI.Graphics() as PlayerGraphics; this.player.beginFill(0xFFFFFF); this.player.drawCircle(0, 0, 15); this.player.endFill(); this.world.addChild(this.player);
         // 초기 위치는 나중에 startGame()에서 플랫폼 위에 정확히 배치됨
         // 여기서는 임시 위치만 설정 (화면 밖에 숨김)
         this.player.x = -100;
         this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
         this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
-        this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 60; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
+        this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
         this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
         this.gameOverText.x = GAME_CONFIG.width / 2; this.gameOverText.y = GAME_CONFIG.height / 2; this.gameOverText.anchor.set(0.5, 0.5); this.gameOverText.visible = false; this.stage.addChild(this.gameOverText);
     }
 
     private initInput(): void {
-        // stage 레벨에서 이벤트 처리 (게임 오버 텍스트가 가리는 것 방지)
-        this.stage.interactive = true;
-        this.stage.eventMode = 'static';
-        this.stage.hitArea = new PIXI.Rectangle(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-        
-        this.stage.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+        this.world.interactive = true;
+        this.world.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
             const currentState = gameState.get();
             
             // 게임 오버 상태면 재시작
             if (currentState.gameOver) {
-                console.log('게임 오버 상태에서 클릭 - 재시작');
                 this.restartGame();
                 return;
             }
@@ -115,10 +95,6 @@ export class GameManager {
             // 게임 진행 중: 로프 발사
             this.shootRopeTowardPoint(event.clientX, event.clientY);
         });
-        
-        // world도 interactive 유지
-        this.world.interactive = true;
-        this.world.eventMode = 'static';
         
         // pointerup 제거 - 모바일용 (탭만으로 로프 발사)
     }
@@ -226,25 +202,26 @@ export class GameManager {
         gameActions.clearPlatforms(); 
         gameActions.updateCamera(0); 
         
-        // 스크롤 방식: 시작 플랫폼을 플레이어 고정 위치 근처에 배치
-        const playerX = GAME_CONFIG.playerFixedX;
-        const startingPlatform = this.createPlatformNoAnimation(playerX - 50, GAME_CONFIG.height - 300); 
-        let lastX = startingPlatform.x + startingPlatform.width; 
+        // 시작 플랫폼은 애니메이션 없이 즉시 생성 (플레이어가 위에 서 있어야 하므로)
+        const startingPlatform = this.createPlatformNoAnimation(50, GAME_CONFIG.height - 165); 
+        gameActions.updateCamera(50 + startingPlatform.width); 
+        let lastX = 50 + startingPlatform.width; 
         
-        // 나머지 플랫폼은 화면 오른쪽까지 배치
-        for (let i = 0; i < 8; i++) {
-            const gap = 360 + Math.random() * 140; // 1080p 기준 2배
+        // 나머지 플랫폼은 애니메이션 적용 (각 위치마다 상단과 하단에 모두 배치)
+        for (let i = 0; i < 8; i++) { // 8세트 생성
+            const gap = 180 + Math.random() * 70; // 간격: 180~250
             lastX = lastX + gap;
             
-            // 상단 플랫폼 (1080 기준: 150~550)
-            const yTop = 150 + Math.random() * 400;
+            // 상단 플랫폼 생성 (80 ~ 280)
+            const yTop = 80 + Math.random() * 200;
             const platformTop = this.createPlatform(lastX, yTop);
             
-            // 하단 플랫폼 (1080 기준: 630~930)
-            const yBottom = 630 + Math.random() * 300;
-            const platformBottom = this.createPlatform(lastX + 20, yBottom);
+            // 하단 플랫폼 생성 (350 ~ 520)
+            const yBottom = 350 + Math.random() * 170;
+            const platformBottom = this.createPlatform(lastX + 20, yBottom); // X 위치 약간 어긋나게
             
             lastX = lastX + Math.max(platformTop.width, platformBottom.width);
+            gameActions.updateCamera(lastX);
         } 
     }
     
@@ -288,20 +265,19 @@ export class GameManager {
             // 플레이어 중심이 플랫폼 상단보다 15px 위에 있어야 함 (플레이어 반지름 15)
             // 플레이어 하단 = 플레이어 중심 + 15 = 플랫폼 상단과 맞춤
             const platformTopY = startingPlatform.y;
-            const playerY = platformTopY - 30; // 플레이어 반지름 30
-            // 스크롤 방식: 플레이어는 고정 위치
-            const playerX = GAME_CONFIG.playerFixedX;
+            const playerY = platformTopY - 15; // 플레이어 중심 위치
+            const playerX = 50 + (pg.width / 2); // 플랫폼 중앙에 배치
             
             console.log('플레이어 배치:', { 
                 platformTopY, 
                 playerY, 
                 playerX, 
                 platformWidth: pg.width,
-                playerBottom: playerY + 30,
+                playerBottom: playerY + 15,
                 platformHeight: GAME_CONFIG.platformHeight
             });
             
-            // 플레이어를 플랫폼 위에 정확히 배치
+            // 플레이어를 플랫폼 위에 정확히 배치 (렌더링 순서 고려)
             this.player.x = playerX;
             this.player.y = playerY;
             gameActions.updatePlayerPosition(playerX, playerY);
@@ -312,21 +288,27 @@ export class GameManager {
             this.player.isOnPlatform = true;
             this.player.platformY = playerY;
             
+            // 카메라 위치 초기화 (첫 프레임에 급격한 변화 방지)
+            this.previousPlayerX = playerX;
+            this.previousPlayerY = playerY;
+            
             // 플레이어를 렌더링 최상단으로 이동 (플랫폼 위에 보이도록)
             const playerIndex = this.world.children.indexOf(this.player);
             if (playerIndex >= 0 && playerIndex < this.world.children.length - 1) {
                 this.world.setChildIndex(this.player, this.world.children.length - 1);
             }
         } else {
-            // 플랫폼이 없으면 기본 위치 (스크롤 방식: 고정 X)
-            this.player.x = GAME_CONFIG.playerFixedX;
-            this.player.y = GAME_CONFIG.height - 324;
-            gameActions.updatePlayerPosition(GAME_CONFIG.playerFixedX, GAME_CONFIG.height - 324);
+            // 플랫폼이 없으면 기본 위치
+            this.player.x = 100;
+            this.player.y = GAME_CONFIG.height - 180;
+            gameActions.updatePlayerPosition(100, GAME_CONFIG.height - 180);
             gameActions.updatePlayerVelocity(0, 0);
+            this.previousPlayerX = 100;
+            this.previousPlayerY = GAME_CONFIG.height - 180;
         }
         
-        // 스크롤 초기화
-        this.scrollOffsetX = 0;
+        this.worldX = 0;
+        this.targetWorldX = 0;
         this.world.x = 0;
         this.world.y = 0;
         
@@ -354,8 +336,9 @@ export class GameManager {
     private restartGame(): void { const currentPlatforms = platforms.get(); currentPlatforms.forEach(p => { this.world.removeChild(p); }); gameActions.clearPlatforms(); this.isSwingSoundPlaying = false; this.startGame(); }
 
     private updateScore(): void { 
-        // 스크롤 방식: scrollOffsetX를 미터로 변환 (100px = 1m)
-        const meters = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+        const playerPos = playerState.get();
+        // 플레이어 X 좌표를 미터로 변환 (100px = 1m)
+        const meters = Math.floor(Math.max(0, playerPos.x) / 100);
         this.scoreText.text = `${meters} m`;
         animationSystem.scoreAnimation(this.scoreText);
     }
@@ -384,16 +367,7 @@ export class GameManager {
         this.checkGameOver();
     }
 
-    private updatePlayerGraphics(): void { 
-        if (!this.player) return; 
-        const playerPos = playerState.get(); 
-        // 스크롤 방식: 플레이어는 항상 고정 X 위치에 렌더링
-        this.player.x = GAME_CONFIG.playerFixedX; 
-        this.player.y = playerPos.y; 
-        this.player.visible = true; 
-        this.player.alpha = 1; 
-        try { (this.player as any).scale?.set?.(1, 1); } catch {} 
-    }
+    private updatePlayerGraphics(): void { if (!this.player) return; const playerPos = playerState.get(); this.player.x = playerPos.x; this.player.y = playerPos.y; this.player.visible = true; this.player.alpha = 1; try { (this.player as any).scale?.set?.(1, 1); } catch {} }
 
     private updateCameraZoom(): void {
         // 카메라 줌 스무스 전환
@@ -408,66 +382,87 @@ export class GameManager {
         const playerPos = playerState.get();
         const rope = ropeState.get();
         
-        // 스크롤 방식: 플레이어가 고정 위치를 벗어나면 월드를 스크롤
-        const targetPlayerX = GAME_CONFIG.playerFixedX;
-        const deltaX = playerPos.x - targetPlayerX;
+        // 플레이어 위치 변화량 계산
+        const deltaX = Math.abs(playerPos.x - this.previousPlayerX);
+        const deltaY = Math.abs(playerPos.y - this.previousPlayerY);
         
-        // 플레이어가 고정 위치에서 벗어났으면
-        if (Math.abs(deltaX) > 1) {
-            // 플랫폼과 로프 앵커를 반대 방향으로 이동
-            const currentPlatforms = platforms.get();
-            currentPlatforms.forEach(platform => {
-                platform.x -= deltaX;
-            });
-            
-            // 로프 앵커도 이동
-            if (rope.isActive || rope.isPulling) {
-                ropeState.setKey('anchorX', rope.anchorX - deltaX);
-            }
-            if (rope.isFlying && rope.tipX !== undefined) {
-                ropeState.setKey('tipX', rope.tipX - deltaX);
-            }
-            
-            // 스크롤 누적
-            this.scrollOffsetX += deltaX;
-            
-            // 플레이어를 고정 위치로 되돌림
-            gameActions.updatePlayerPosition(targetPlayerX, playerPos.y);
+        // 급격한 위치 변화 감지 (착지, 순간이동 등)
+        const suddenChange = deltaX > 50 || deltaY > 50;
+        
+        // 카메라가 플레이어를 따라가도록 계산 (플레이어가 화면 중앙보다 앞에 있으면 추적)
+        this.targetWorldX = -(playerPos.x - this.cameraCenterX);
+        // 왼쪽으로는 이동하지 않도록 제한 (게임은 오른쪽으로만 진행)
+        this.targetWorldX = Math.min(this.targetWorldX, 0);
+        
+        // X축 추적 속도 동적 조정
+        let cameraSpeedX = 0.15; // 기본 속도 (0.25 -> 0.15로 감소)
+        if (rope.isPulling) {
+            cameraSpeedX = 0.12; // 풀링 중에는 더 느리게 (부드럽게)
+        } else if (suddenChange) {
+            cameraSpeedX = 0.6; // 급격한 변화 시 빠르게 따라가기
         }
         
-        // 카메라 X축은 고정 (이동하지 않음)
-        const worldX = 0;
+        this.worldX += (this.targetWorldX - this.worldX) * cameraSpeedX;
         
-        // Y축도 고정 (전체 화면 보기)
-        const newWorldY = 0;
+        // Y축 추적 (수직)
+        const viewH = GAME_CONFIG.height;
+        const deadZoneY = 150; // 100 -> 150으로 증가 (더 여유있게)
+        const currentWorldY = this.world.y || 0;
+        let targetWorldY = currentWorldY;
+        const playerScreenY = playerPos.y + currentWorldY;
+        const topBound = viewH / 2 - deadZoneY; // 화면 중앙 기준 상한선
+        const bottomBound = viewH / 2 + deadZoneY; // 화면 중앙 기준 하한선
         
-        // world 위치 설정 (X, Y 모두 고정)
-        this.world.x = worldX;
+        // 플레이어가 상한선 위에 있으면 카메라를 위로 이동
+        if (playerScreenY < topBound) {
+            const offset = topBound - playerScreenY;
+            targetWorldY += offset;
+        } else if (playerScreenY > bottomBound) {
+            // 하한선: 플레이어가 아래로 떨어질 때만 제한적으로 추적
+            // 하지만 화면 하단을 넘어서면 카메라 추적 중단 (게임 오버를 위해)
+            const offset = playerScreenY - bottomBound;
+            // 플레이어가 화면 밖으로 나가면 카메라 추적 중단
+            if (playerScreenY > viewH + 50) {
+                // 카메라를 더 내리지 않음 (현재 위치 유지)
+                targetWorldY = currentWorldY;
+            } else {
+                targetWorldY -= offset;
+            }
+        }
+        
+        // Y축 추적 속도 동적 조정
+        let cameraSpeedY = 0.12; // 기본 속도 (0.25 -> 0.12로 감소)
+        if (rope.isPulling) {
+            cameraSpeedY = 0.1; // 풀링 중에는 더 느리게
+        } else if (suddenChange) {
+            cameraSpeedY = 0.5; // 급격한 변화 시 빠르게 따라가기
+        }
+        
+        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * cameraSpeedY;
+        this.world.x = this.worldX;
         this.world.y = newWorldY;
         
-        // hitArea 설정
+        // 이전 플레이어 위치 저장
+        this.previousPlayerX = playerPos.x;
+        this.previousPlayerY = playerPos.y;
+        
+        // hitArea를 카메라 위치에 맞춰 동적으로 업데이트
         const scale = this.world.scale.x || 1.0;
-        this.world.hitArea = new PIXI.Rectangle(0, 0, GAME_CONFIG.width * 2, GAME_CONFIG.height * 2);
+        const hitAreaX = -this.worldX / scale - 1000;
+        const hitAreaY = -newWorldY / scale - 1000;
+        const hitAreaWidth = GAME_CONFIG.width / scale + 2000;
+        const hitAreaHeight = GAME_CONFIG.height / scale + 2000;
+        this.world.hitArea = new PIXI.Rectangle(hitAreaX, hitAreaY, hitAreaWidth, hitAreaHeight);
         
-        // fxLayer 동기화 (X, Y 모두 0)
+        // fxLayer 위치도 world와 동기화 (카메라 이동 반영)
         if (this.fxLayer) {
-            this.fxLayer.x = 0;
-            this.fxLayer.y = 0;
+            this.fxLayer.x = this.worldX;
+            this.fxLayer.y = newWorldY;
         }
-        
-        // 거리 업데이트 (scrollOffsetX 사용)
-        gameActions.updateCamera(this.scrollOffsetX);
+        gameActions.updateCamera(-this.worldX);
     }
 
-    private updateBackground(): void { 
-        // 스크롤 방식: scrollOffsetX 사용
-        const scrollX = this.scrollOffsetX * this.bgSpeed; 
-        for (let i = 0; i < this.bgTiles.length; i++) { 
-            const tile = this.bgTiles[i]; 
-            const baseX = (i % 2) * this.bgTileWidth; 
-            tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); 
-        } 
-    }
+    private updateBackground(): void { const scrollX = this.worldX * this.bgSpeed; for (let i = 0; i < this.bgTiles.length; i++) { const tile = this.bgTiles[i]; const baseX = (i % 2) * this.bgTileWidth; tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); } }
 
     private updatePullToAnchor(): void {
         const ropePos = ropeState.get();
@@ -573,22 +568,8 @@ export class GameManager {
         
         if (this.player && this.player.isOnPlatform && this.player.platformY !== undefined) {
             const currentPlatforms = platforms.get();
-            // 스크롤 방식: 플레이어는 고정 X
-            const onPlatform = currentPlatforms.find(p => { 
-                const pg = p as PlatformGraphics; 
-                const onX = GAME_CONFIG.playerFixedX + 30 > p.x && GAME_CONFIG.playerFixedX - 30 < p.x + pg.width; 
-                const onY = Math.abs(this.player!.platformY! - (p.y - 30)) <= 2; 
-                return onX && onY; 
-            });
-            if (onPlatform) { 
-                // 플레이어는 고정 위치 유지
-                gameActions.updatePlayerPosition(GAME_CONFIG.playerFixedX, this.player.platformY); 
-                gameActions.updatePlayerVelocity(0, 0); 
-                return; 
-            } else { 
-                this.player.isOnPlatform = false; 
-                this.player.platformY = undefined; 
-            }
+            const onPlatform = currentPlatforms.find(p => { const pg = p as PlatformGraphics; const onX = playerPos.x + 15 > p.x && playerPos.x - 15 < p.x + pg.width; const onY = Math.abs(this.player!.platformY! - (p.y - 15)) <= 2; return onX && onY; });
+            if (onPlatform) { const vx = this.getCurrentRunSpeed(); const newX = playerPos.x + vx; gameActions.updatePlayerPosition(newX, this.player.platformY); gameActions.updatePlayerVelocity(vx, 0); return; } else { this.player.isOnPlatform = false; this.player.platformY = undefined; }
         }
         const gravity = GAME_CONFIG.gravity * 0.016; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); 
         // 자유낙하 착지 비활성화 (로프로만 착지 가능)
@@ -603,20 +584,20 @@ export class GameManager {
             const platformCast = platform as PlatformGraphics;
             const left = platform.x - 5;
             const right = platform.x + platformCast.width + 5;
-            // 스크롤 방식: 플레이어는 고정 X
-            const isHorizontallyAligned = GAME_CONFIG.playerFixedX >= left && GAME_CONFIG.playerFixedX <= right;
+            const isHorizontallyAligned = playerPos.x >= left && playerPos.x <= right;
             const platformTop = platform.y;
-            const playerBottom = playerPos.y + 30; // 플레이어 반지름 30
+            const playerBottom = playerPos.y + 15;
             const isOnTop = playerBottom >= platformTop - 4 && playerBottom <= platformTop + 10;
             const isFallingDown = playerPos.velocityY > 0.2;
             
             if (isHorizontallyAligned && isOnTop && isFallingDown && !platformCast.landed) {
-                const snapY = platform.y - 30; // 플레이어 반지름 30
-                // 스크롤 방식: X는 고정 위치
-                const snapX = GAME_CONFIG.playerFixedX;
+                const snapY = platform.y - 15;
+                // X는 현재 위치 유지 (강제로 플랫폼 안으로 당기지 않음)
+                const snapX = playerPos.x;
                 
                 gameActions.updatePlayerPosition(snapX, snapY);
-                gameActions.updatePlayerVelocity(0, 0); // 스크롤 방식: 속도는 0
+                const runVx = this.getCurrentRunSpeed();
+                gameActions.updatePlayerVelocity(runVx, 0); // Y 속도를 명시적으로 0으로
                 gameActions.setSwinging(false);
                 ropeState.setKey('isActive', false);
                 ropeState.setKey('isFlying', false);
@@ -649,40 +630,23 @@ export class GameManager {
     }
 
     private managePlatforms(): void {
-        const currentPlatforms = platforms.get();
-        
-        // 화면 왼쪽 밖으로 나간 플랫폼 제거
-        const filteredPlatforms = currentPlatforms.filter(platform => { 
-            if (platform.x + (platform as PlatformGraphics).width < -200) { 
-                this.world.removeChild(platform); 
-                return false; 
-            } 
-            return true; 
-        });
-        platforms.set(filteredPlatforms);
-        
-        // 가장 오른쪽 플랫폼 찾기
-        let rightmostPlatformEnd = 0;
-        filteredPlatforms.forEach(platform => { 
-            const platformCast = platform as PlatformGraphics; 
-            const platformEnd = platform.x + platformCast.width; 
-            if (platformEnd > rightmostPlatformEnd) { 
-                rightmostPlatformEnd = platformEnd; 
-            } 
-        });
-        
-        // 화면 오른쪽에 플랫폼이 부족하면 생성
-        const spawnThreshold = GAME_CONFIG.width + 1200; // 1080p 기준 2배
-        if (rightmostPlatformEnd < spawnThreshold) { 
-            const gap = 360 + Math.random() * 140; // 1080p 기준 2배
+        const currentPlatforms = platforms.get(); const cameraLeft = gameState.get().cameraX;
+        const filteredPlatforms = currentPlatforms.filter(platform => { if (platform.x + platform.width < cameraLeft - 200) { this.world.removeChild(platform); return false; } return true; }); platforms.set(filteredPlatforms);
+        const cameraRight = cameraLeft + GAME_CONFIG.width; const spawnThreshold = 600; let rightmostPlatformEnd = gameState.get().lastPlatformX;
+        filteredPlatforms.forEach(platform => { const platformCast = platform as PlatformGraphics; const platformEnd = platform.x + platformCast.width; if (platformEnd > rightmostPlatformEnd) { rightmostPlatformEnd = platformEnd; } });
+        if (rightmostPlatformEnd < cameraRight + spawnThreshold) { 
+            const gap = 180 + Math.random() * 70;
             const x = rightmostPlatformEnd + gap;
             
-            // 상단과 하단에 모두 플랫폼 생성 (1080 기준)
-            const yTop = 150 + Math.random() * 400;
+            // 상단과 하단에 모두 플랫폼 생성
+            const yTop = 80 + Math.random() * 200; // 상단: 80~280
             const platformTop = this.createPlatform(x, yTop);
             
-            const yBottom = 630 + Math.random() * 300;
+            const yBottom = 350 + Math.random() * 170; // 하단: 350~520
             const platformBottom = this.createPlatform(x + 20, yBottom);
+            
+            const newRightmost = x + Math.max(platformTop.width, platformBottom.width);
+            gameActions.updateCamera(newRightmost);
         }
     }
 
@@ -694,34 +658,6 @@ export class GameManager {
         this.world.setChildIndex(this.rope, ropeTargetIndex);
     }
 
-    private handleResize(): void {
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        
-        // 게임 로직 해상도 (고정)
-        const gameWidth = GAME_CONFIG.width;
-        const gameHeight = GAME_CONFIG.height;
-        
-        // 화면 비율 계산
-        const scaleX = screenWidth / gameWidth;
-        const scaleY = screenHeight / gameHeight;
-        
-        // 작은 쪽에 맞춰서 스케일링 (aspect ratio 유지)
-        const scale = Math.min(scaleX, scaleY);
-        
-        // 캔버스 크기 설정 (스케일 적용)
-        const scaledWidth = gameWidth * scale;
-        const scaledHeight = gameHeight * scale;
-        
-        // 캔버스 스타일 설정
-        const canvas = this.app.view as HTMLCanvasElement;
-        canvas.style.width = `${scaledWidth}px`;
-        canvas.style.height = `${scaledHeight}px`;
-        
-        // 렌더러 해상도는 고정 유지
-        this.app.renderer.resize(gameWidth, gameHeight);
-    }
-
     private checkGameOver(): void {
         const playerPos = playerState.get();
         if (this.landingGraceFrames > 0) {
@@ -730,7 +666,7 @@ export class GameManager {
         }
         
         // 게임 오버 체크: 플레이어 Y 좌표 직접 체크
-        const playerYTooLow = playerPos.y > 1000; // 바닥으로 너무 떨어짐
+        const playerYTooLow = playerPos.y > 2000; // 바닥으로 너무 떨어짐
         const playerYTooHigh = playerPos.y < -500; // 위로 너무 솟구침
         
         // 화면 좌표 계산: world.x와 world.y는 카메라 오프셋
@@ -738,7 +674,7 @@ export class GameManager {
         const screenY = playerPos.y + this.world.y;
         
         // 게임 오버 조건:
-        // - 플레이어 Y 좌표가 1000 이상 (바닥으로 너무 떨어짐)
+        // - 플레이어 Y 좌표가 2000 이상 (바닥으로 너무 떨어짐)
         // - 플레이어 Y 좌표가 -500 미만 (위로 너무 솟구침)
         // - 아래쪽: 화면 높이를 크게 벗어남
         const outBottom = screenY > GAME_CONFIG.height + 50;
