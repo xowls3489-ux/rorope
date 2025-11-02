@@ -22,7 +22,7 @@ interface Particle {
 export class VFXSystem {
     private fxLayer!: PIXI.Container;
     private particles: Particle[] = [];
-    private readonly particlePoolSize = 50; // 30 -> 50으로 증가
+    private readonly particlePoolSize = 30; // 최적화: 50 -> 30으로 감소
     private stageAlpha: number = 1.0;
 
     /**
@@ -113,7 +113,7 @@ export class VFXSystem {
     /**
      * 여러 파티클 스폰 (착지 시 먼지 효과)
      */
-    spawnDustParticles(x: number, y: number, count: number = 5): void {
+    spawnDustParticles(x: number, y: number, count: number = 3): void {
         // fxLayer가 초기화되지 않았으면 리턴
         if (!this.fxLayer || !this.particles || this.particles.length === 0) {
             console.warn('[VFX] fxLayer 또는 particles가 초기화되지 않음');
@@ -143,7 +143,7 @@ export class VFXSystem {
             return;
         }
 
-        const count = 5 + Math.floor(Math.random() * 4); // 5~8개로 증가
+        const count = 3 + Math.floor(Math.random() * 2); // 최적화: 3~4개로 감소
         console.log(`[VFX] 로프 해제 파티클 ${count}개 스폰:`, x, y);
         const baseAngle = Math.atan2(vy, vx);
         for (let i = 0; i < count; i++) {
@@ -247,7 +247,7 @@ export class VFXSystem {
     spawnRopeShootSpark(x: number, y: number, dirX: number, dirY: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        const count = 4 + Math.floor(Math.random() * 3); // 4~6개
+        const count = 3 + Math.floor(Math.random() * 2); // 최적화: 3~4개로 감소
         for (let i = 0; i < count; i++) {
             const angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 0.6;
             const speed = 5 + Math.random() * 4;
@@ -265,7 +265,7 @@ export class VFXSystem {
     spawnScoreBurst(x: number, y: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        const count = 8 + Math.floor(Math.random() * 5); // 8~12개
+        const count = 5 + Math.floor(Math.random() * 3); // 최적화: 5~7개로 감소
         const colors = [0xffff00, 0xffaa00, 0xffffff, 0xffdd00]; // 노란색 계열
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
@@ -296,9 +296,9 @@ export class VFXSystem {
         flash.alpha = 1.0;
         this.fxLayer.addChild(flash);
 
-        // 방사형 파티클 효과
+        // 방사형 파티클 효과 (최적화: 6 -> 4개로 감소)
         if (this.particles && this.particles.length > 0) {
-            const count = 6;
+            const count = 4;
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count;
                 const speed = 6 + Math.random() * 4;
@@ -338,8 +338,8 @@ export class VFXSystem {
     spawnRopeTrailParticles(playerX: number, playerY: number, anchorX: number, anchorY: number, combo: number = 0): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        // 로프를 따라 2-3개의 파티클 생성
-        const count = 2 + Math.floor(Math.random() * 2);
+        // 로프를 따라 1-2개의 파티클 생성 (최적화)
+        const count = 1 + Math.floor(Math.random() * 2);
         for (let i = 0; i < count; i++) {
             const t = Math.random(); // 로프 상의 위치 (0 = 플레이어, 1 = 앵커)
             const x = playerX + (anchorX - playerX) * t;

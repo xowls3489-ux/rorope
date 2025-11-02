@@ -26,12 +26,17 @@ export class GameManager {
     private landingGraceFrames: number = 0;
     // 배경 요소들
     private stars: Array<{graphic: PIXI.Graphics, baseAlpha: number, twinkleSpeed: number, twinklePhase: number}> = [];
+    private clouds: Array<{sprite: PIXI.Sprite, speed: number}> = [];
     private readonly maxSpeedX: number = 18;
     private readonly maxSpeedY: number = 80;
     private cameraZoom: number = 0.85;
     private targetCameraZoom: number = 0.85;
     private baseCameraZoom: number = 0.85; // 기본 줌 레벨 (모바일 대응)
     private trailParticleCounter: number = 0;
+    private frameCounter: number = 0; // 최적화용 프레임 카운터
+    // 오브젝트 풀링
+    private platformPool: PlatformGraphics[] = [];
+    private readonly platformPoolSize: number = 30;
     // 스크롤 방식 변수
     private scrollOffsetX: number = 0; // 누적 스크롤 거리 (플레이어가 "이동한" 거리)
     
@@ -64,9 +69,22 @@ export class GameManager {
         // hitArea를 매우 크게 설정 (게임이 오른쪽으로 계속 진행되므로)
         this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
         this.fxLayer = vfxSystem.initialize(this.stage); // FX 레이어 초기화 및 추가
-        this.initBackground(); this.initGameObjects(); this.initInput();
+        await this.initBackground(); this.initPlatformPool(); this.initGameObjects(); this.initInput();
         this.setupResizeHandler(); // 화면 크기 변경 대응
         this.app.ticker.add(this.update.bind(this)); this.app.ticker.maxFPS = 60;
+    }
+    
+    private initPlatformPool(): void {
+        // 플랫폼 풀 생성 (재사용 가능한 30개의 플랫폼)
+        for (let i = 0; i < this.platformPoolSize; i++) {
+            const platform = new PIXI.Graphics() as PlatformGraphics;
+            platform.visible = false;
+            platform.width = 0;
+            platform.height = GAME_CONFIG.platformHeight;
+            (platform as any).inUse = false; // 사용 중 여부
+            this.world.addChild(platform);
+            this.platformPool.push(platform);
+        }
     }
 
     private updateGameOverPosition(): void {
@@ -105,7 +123,7 @@ export class GameManager {
         window.addEventListener('orientationchange', handleResize);
     }
 
-    private initBackground(): void { 
+    private async initBackground(): Promise<void> { 
         // 배경 타일
         for (let i = 0; i < 2; i++) { 
             const tile = new PIXI.Graphics(); 
@@ -117,17 +135,20 @@ export class GameManager {
             this.bgLayer.addChild(tile); 
         }
         
-        // 별 추가 (100개)
-        for (let i = 0; i < 100; i++) {
+        // 별 추가 (최적화: 15개로 감소)
+        for (let i = 0; i < 15; i++) {
             const star = new PIXI.Graphics();
             const size = Math.random() * 2 + 1; // 1-3px
             star.beginFill(0xFFFFFF);
             star.drawCircle(0, 0, size);
             star.endFill();
-            star.x = Math.random() * GAME_CONFIG.width * 2;
+            const startX = Math.random() * GAME_CONFIG.width * 2;
+            star.x = startX;
             star.y = Math.random() * GAME_CONFIG.height;
             const baseAlpha = 0.3 + Math.random() * 0.7; // 0.3-1.0
             star.alpha = baseAlpha;
+            // baseX 미리 설정 (최적화)
+            (star as any).baseX = startX;
             this.bgLayer.addChild(star);
             this.stars.push({
                 graphic: star,
@@ -135,6 +156,42 @@ export class GameManager {
                 twinkleSpeed: 0.5 + Math.random() * 2, // 깜빡이는 속도
                 twinklePhase: Math.random() * Math.PI * 2 // 초기 위상
             });
+        }
+        
+        // 구름 추가
+        try {
+            const cloudTexture = await PIXI.Assets.load('/src/sprites/cloud.png');
+            
+            // 구름 생성 (최적화: 4개로 감소)
+            for (let i = 0; i < 4; i++) {
+                const cloud = new PIXI.Sprite(cloudTexture);
+                
+                // 크기 랜덤화 (0.3 ~ 0.7 배율)
+                const scale = 0.3 + Math.random() * 0.4;
+                cloud.scale.set(scale);
+                
+                // 위치 설정
+                const startX = Math.random() * GAME_CONFIG.width * 2;
+                cloud.x = startX;
+                cloud.y = 50 + Math.random() * (GAME_CONFIG.height * 0.4); // 상단 40% 영역
+                
+                // 투명도 (0.2 ~ 0.5)
+                cloud.alpha = 0.2 + Math.random() * 0.3;
+                
+                // 앵커를 중앙으로
+                cloud.anchor.set(0.5, 0.5);
+                
+                // baseX 미리 설정 (최적화)
+                (cloud as any).baseX = startX;
+                
+                this.bgLayer.addChild(cloud);
+                
+                // 각 구름마다 다른 스크롤 속도 (시차 효과)
+                const speed = 0.3 + Math.random() * 0.4; // 0.3 ~ 0.7
+                this.clouds.push({ sprite: cloud, speed });
+            }
+        } catch (error) {
+            console.error('구름 텍스처 로드 실패:', error);
         }
     }
 
@@ -375,7 +432,37 @@ export class GameManager {
         this.releaseRopeFromPull();
     }
 
-    private createPlatform(x: number, y: number): PlatformGraphics { const platform = new PIXI.Graphics() as PlatformGraphics; const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); platform.beginFill(COLORS.primary); platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); platform.endFill(); platform.x = x; platform.y = y; platform.width = width; platform.height = GAME_CONFIG.platformHeight; this.world.addChild(platform); gameActions.addPlatform(platform); animationSystem.platformSpawnAnimation(platform); return platform; }
+    private createPlatform(x: number, y: number): PlatformGraphics {
+        // 풀에서 사용 가능한 플랫폼 찾기
+        const platform = this.platformPool.find(p => !(p as any).inUse);
+        if (!platform) {
+            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
+            // 풀이 부족하면 임시로 새로 생성 (비상 대책)
+            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
+            this.world.addChild(newPlatform);
+            this.platformPool.push(newPlatform);
+        }
+        
+        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
+        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
+        
+        // 플랫폼 재설정
+        targetPlatform.clear();
+        targetPlatform.beginFill(COLORS.primary);
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        targetPlatform.endFill();
+        targetPlatform.x = x;
+        targetPlatform.y = y;
+        targetPlatform.width = width;
+        targetPlatform.height = GAME_CONFIG.platformHeight;
+        targetPlatform.visible = true;
+        targetPlatform.landed = false;
+        (targetPlatform as any).inUse = true;
+        
+        gameActions.addPlatform(targetPlatform);
+        animationSystem.platformSpawnAnimation(targetPlatform);
+        return targetPlatform;
+    }
 
     private generateInitialPlatforms(): void { 
         gameActions.clearPlatforms(); 
@@ -404,19 +491,34 @@ export class GameManager {
     }
     
     private createPlatformNoAnimation(x: number, y: number): PlatformGraphics { 
-        const platform = new PIXI.Graphics() as PlatformGraphics; 
-        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min); 
-        platform.beginFill(COLORS.primary); 
-        platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0); 
-        platform.endFill(); 
-        platform.x = x; 
-        platform.y = y; 
-        platform.width = width; 
-        platform.height = GAME_CONFIG.platformHeight; 
-        this.world.addChild(platform); 
-        gameActions.addPlatform(platform); 
+        // 풀에서 사용 가능한 플랫폼 찾기
+        const platform = this.platformPool.find(p => !(p as any).inUse);
+        if (!platform) {
+            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
+            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
+            this.world.addChild(newPlatform);
+            this.platformPool.push(newPlatform);
+        }
+        
+        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
+        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
+        
+        // 플랫폼 재설정
+        targetPlatform.clear();
+        targetPlatform.beginFill(COLORS.primary);
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        targetPlatform.endFill();
+        targetPlatform.x = x;
+        targetPlatform.y = y;
+        targetPlatform.width = width;
+        targetPlatform.height = GAME_CONFIG.platformHeight;
+        targetPlatform.visible = true;
+        targetPlatform.landed = false;
+        (targetPlatform as any).inUse = true;
+        
+        gameActions.addPlatform(targetPlatform);
         // 애니메이션 없이 즉시 표시
-        return platform; 
+        return targetPlatform;
     }
 
     private startGame(): void {
@@ -506,7 +608,17 @@ export class GameManager {
     }
     public startGameFromUI(): void { this.startGame(); }
     public restartGameFromUI(): void { this.restartGame(); }
-    private restartGame(): void { const currentPlatforms = platforms.get(); currentPlatforms.forEach(p => { this.world.removeChild(p); }); gameActions.clearPlatforms(); this.isSwingSoundPlaying = false; this.startGame(); }
+    private restartGame(): void {
+        // 플랫폼 풀링: 삭제하지 않고 비활성화
+        const currentPlatforms = platforms.get();
+        currentPlatforms.forEach(p => {
+            p.visible = false;
+            (p as any).inUse = false;
+        });
+        gameActions.clearPlatforms();
+        this.isSwingSoundPlaying = false;
+        this.startGame();
+    }
 
     private updateScore(): void { 
         // 스크롤 방식: scrollOffsetX를 미터로 변환 (100px = 1m)
@@ -668,28 +780,51 @@ export class GameManager {
             tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); 
         }
         
-        // 별 깜빡임 애니메이션 (최적화)
-        const time = performance.now() * 0.001; // 초 단위
+        // 프레임 카운터 증가
+        this.frameCounter++;
+        
+        // 별 깜빡임 애니메이션 (최적화: 5프레임마다만 업데이트)
+        const updateTwinkle = this.frameCounter % 5 === 0;
+        const time = updateTwinkle ? performance.now() * 0.001 : 0;
         
         for (let i = 0; i < this.stars.length; i++) {
             const star = this.stars[i];
+            const graphic = star.graphic;
             
-            // 깜빡임 (매 프레임)
-            const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
-            star.graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3);
-            
-            // 별 위치 계산 (배경과 같은 속도로 스크롤)
-            const baseX = (star.graphic as any).baseX || star.graphic.x;
-            if (!(star.graphic as any).baseX) {
-                (star.graphic as any).baseX = star.graphic.x;
+            // 깜빡임 (3프레임마다만)
+            if (updateTwinkle) {
+                const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
+                graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3);
             }
-            star.graphic.x = baseX - scrollX;
+            
+            // 별 위치 계산 (baseX는 이미 설정됨)
+            const baseX = (graphic as any).baseX;
+            graphic.x = baseX - scrollX;
             
             // 화면 밖으로 나가면 반대편에서 재등장
-            if (star.graphic.x < -50) {
-                (star.graphic as any).baseX += this.bgTileWidth * 2;
-            } else if (star.graphic.x > GAME_CONFIG.width + 50) {
-                (star.graphic as any).baseX -= this.bgTileWidth * 2;
+            if (graphic.x < -50) {
+                (graphic as any).baseX += this.bgTileWidth * 2;
+            } else if (graphic.x > GAME_CONFIG.width + 50) {
+                (graphic as any).baseX -= this.bgTileWidth * 2;
+            }
+        }
+        
+        // 구름 스크롤 (최적화: 2프레임마다만 업데이트)
+        if (this.frameCounter % 2 === 0) {
+            for (let i = 0; i < this.clouds.length; i++) {
+                const cloudData = this.clouds[i];
+                const cloud = cloudData.sprite;
+                
+                // 구름 위치 계산 (baseX는 이미 설정됨)
+                const baseX = (cloud as any).baseX;
+                cloud.x = baseX - scrollX;
+                
+                // 화면 밖으로 나가면 반대편에서 재등장
+                if (cloud.x < -200) {
+                    (cloud as any).baseX += this.bgTileWidth * 2;
+                } else if (cloud.x > GAME_CONFIG.width + 200) {
+                    (cloud as any).baseX -= this.bgTileWidth * 2;
+                }
             }
         }
     }
@@ -710,9 +845,9 @@ export class GameManager {
         const dy = ropePos.anchorY - playerPos.y;
         const dist = Math.hypot(dx, dy);
         
-        // 로프 트레일 파티클 생성 (매 프레임마다가 아니라 간헐적으로)
+        // 로프 트레일 파티클 생성 (최적화: 5프레임마다)
         this.trailParticleCounter++;
-        if (this.trailParticleCounter >= 3) {
+        if (this.trailParticleCounter >= 5) {
             this.trailParticleCounter = 0;
             vfxSystem.spawnRopeTrailParticles(playerPos.x, playerPos.y, ropePos.anchorX, ropePos.anchorY, combo);
         }
@@ -876,10 +1011,12 @@ export class GameManager {
     private managePlatforms(): void {
         const currentPlatforms = platforms.get();
         
-        // 화면 왼쪽 밖으로 나간 플랫폼 제거
+        // 화면 왼쪽 밖으로 나간 플랫폼 비활성화 (풀링)
         const filteredPlatforms = currentPlatforms.filter(platform => { 
             if (platform.x + (platform as PlatformGraphics).width < -200) { 
-                this.world.removeChild(platform); 
+                // 삭제하지 않고 비활성화만
+                platform.visible = false;
+                (platform as any).inUse = false;
                 return false; 
             } 
             return true; 
