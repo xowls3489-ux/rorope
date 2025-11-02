@@ -23,12 +23,13 @@ if (gameRoot) {
     if (state === 'game') {
       // Unmount title and mount game
       if (titleRoot) {
-        titleRoot.style.display = 'none';
+        titleRoot.classList.add('hidden');
         titleRoot.innerHTML = ''; // 완전히 제거
       }
       
       if (gameRoot) {
-        gameRoot.style.display = 'block';
+        gameRoot.classList.remove('hidden');
+        gameRoot.style.display = 'flex'; // flex로 복원
         if (!gameInstance) {
           gameInstance = new GameScene({ target: gameRoot });
           console.log('Game scene mounted');
@@ -37,12 +38,13 @@ if (gameRoot) {
     } else if (state === 'title') {
       // Unmount game and mount title
       if (gameRoot) {
-        gameRoot.style.display = 'none';
+        gameRoot.classList.add('hidden');
         // GameScene의 onDestroy에서 cleanup 처리
       }
       
       if (titleRoot) {
-        titleRoot.style.display = 'block';
+        titleRoot.classList.remove('hidden');
+        titleRoot.style.display = 'flex'; // flex로 복원
         if (titleRoot.innerHTML === '') {
           new TitleScene({ target: titleRoot });
         }

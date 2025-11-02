@@ -43,9 +43,38 @@ export class GameManager {
     constructor() { this.init(); }
 
     private async init(): Promise<void> {
-        this.app = new PIXI.Application({ width: GAME_CONFIG.width, height: GAME_CONFIG.height, backgroundColor: COLORS.background, resizeTo: window, antialias: true });
+        // 모바일 해상도 대응: 화면 크기에 맞춰 16:9 비율 유지
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const targetAspect = 16 / 9;
+        const screenAspect = screenWidth / screenHeight;
+        
+        let gameWidth, gameHeight;
+        if (screenAspect > targetAspect) {
+            // 화면이 더 넓음 (세로 기준)
+            gameHeight = screenHeight;
+            gameWidth = gameHeight * targetAspect;
+        } else {
+            // 화면이 더 좁음 (가로 기준)
+            gameWidth = screenWidth;
+            gameHeight = gameWidth / targetAspect;
+        }
+        
+        this.app = new PIXI.Application({ 
+            width: gameWidth, 
+            height: gameHeight, 
+            backgroundColor: COLORS.background, 
+            antialias: true,
+            autoDensity: true,
+            resolution: window.devicePixelRatio || 1
+        });
+        
         const gameRoot = document.getElementById('game-root');
         (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
+        
+        // 화면 크기 변경 시 대응
+        window.addEventListener('resize', () => this.handleResize());
+        
         this.stage = this.app.stage;
         this.bgLayer = new PIXI.Container(); this.bgLayer.name = 'bgLayer'; this.stage.addChildAt(this.bgLayer, 0);
         this.world = new PIXI.Container(); this.world.name = 'world'; this.stage.addChild(this.world);
@@ -687,6 +716,24 @@ export class GameManager {
         if (this.player) { this.world.setChildIndex(this.player, topIndex); }
         const ropeTargetIndex = Math.max(0, this.world.children.length - 2);
         this.world.setChildIndex(this.rope, ropeTargetIndex);
+    }
+
+    private handleResize(): void {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const targetAspect = 16 / 9;
+        const screenAspect = screenWidth / screenHeight;
+        
+        let gameWidth, gameHeight;
+        if (screenAspect > targetAspect) {
+            gameHeight = screenHeight;
+            gameWidth = gameHeight * targetAspect;
+        } else {
+            gameWidth = screenWidth;
+            gameHeight = gameWidth / targetAspect;
+        }
+        
+        this.app.renderer.resize(gameWidth, gameHeight);
     }
 
     private checkGameOver(): void {
