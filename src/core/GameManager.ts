@@ -105,7 +105,7 @@ export class GameManager {
 
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
-    private drawStickman(armAngle?: number): void {
+    private drawStickman(armAngle?: number, velocityY?: number): void {
         this.player.clear();
         this.player.lineStyle(2.5, 0xFFFFFF, 1);
         
@@ -131,6 +131,27 @@ export class GameManager {
             // 반대쪽 팔 (기본 위치)
             this.player.moveTo(0, 0);
             this.player.lineTo(-7, -3);
+        } else if (velocityY !== undefined) {
+            // 공중 애니메이션
+            if (velocityY < -2) {
+                // 상승 중: 팔을 위로
+                this.player.moveTo(0, 0);
+                this.player.lineTo(-6, -8);
+                this.player.moveTo(0, 0);
+                this.player.lineTo(6, -8);
+            } else if (velocityY > 2) {
+                // 낙하 중: 팔을 양옆으로 펼치기
+                this.player.moveTo(0, 0);
+                this.player.lineTo(-9, 0);
+                this.player.moveTo(0, 0);
+                this.player.lineTo(9, 0);
+            } else {
+                // 기본 팔 (느린 이동)
+                this.player.moveTo(0, 0);
+                this.player.lineTo(-7, -3);
+                this.player.moveTo(0, 0);
+                this.player.lineTo(7, -3);
+            }
         } else {
             // 기본 팔 (좌우)
             this.player.moveTo(0, 0);
@@ -139,11 +160,34 @@ export class GameManager {
             this.player.lineTo(7, -3);
         }
         
-        // 다리 (좌우)
-        this.player.moveTo(0, 8);
-        this.player.lineTo(-5, 16);
-        this.player.moveTo(0, 8);
-        this.player.lineTo(5, 16);
+        // 다리 (공중 애니메이션)
+        if (velocityY !== undefined && armAngle === undefined) {
+            if (velocityY < -2) {
+                // 상승 중: 다리 모으기
+                this.player.moveTo(0, 8);
+                this.player.lineTo(-3, 14);
+                this.player.moveTo(0, 8);
+                this.player.lineTo(3, 14);
+            } else if (velocityY > 2) {
+                // 낙하 중: 다리 펼치기
+                this.player.moveTo(0, 8);
+                this.player.lineTo(-6, 16);
+                this.player.moveTo(0, 8);
+                this.player.lineTo(6, 16);
+            } else {
+                // 기본 다리
+                this.player.moveTo(0, 8);
+                this.player.lineTo(-5, 16);
+                this.player.moveTo(0, 8);
+                this.player.lineTo(5, 16);
+            }
+        } else {
+            // 기본 다리 (좌우)
+            this.player.moveTo(0, 8);
+            this.player.lineTo(-5, 16);
+            this.player.moveTo(0, 8);
+            this.player.lineTo(5, 16);
+        }
     }
 
     private initGameObjects(): void {
@@ -481,8 +525,8 @@ export class GameManager {
             const armAngle = Math.atan2(dy, dx);
             this.drawStickman(armAngle);
         } else {
-            // 기본 스틱맨
-            this.drawStickman();
+            // 공중 애니메이션 (상승/하강 포즈)
+            this.drawStickman(undefined, playerPos.velocityY);
         }
         
         // 속도에 따라 스틱맨 회전 (역동적인 느낌)
