@@ -1,9 +1,10 @@
-import { Howl } from 'howler';
+import { Howl, Howler } from 'howler';
 
 // 사운드 효과 클래스
 export class SoundSystem {
   private sounds: Map<string, Howl> = new Map();
   private masterVolume: number = 0.5;
+  private isMuted: boolean = false;
   private audioContextUnlocked: boolean = false;
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
@@ -23,6 +24,12 @@ export class SoundSystem {
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
+    
+    // localStorage에서 사운드 설정 불러오기
+    const savedSoundEnabled = localStorage.getItem('soundEnabled');
+    if (savedSoundEnabled !== null) {
+      this.isMuted = savedSoundEnabled === 'false';
+    }
   }
 
   private setupAudioContextUnlock(): void {
@@ -152,6 +159,11 @@ export class SoundSystem {
 
   // 사운드 재생
   play(soundName: string): void {
+    // 음소거 상태면 재생하지 않음
+    if (this.isMuted) {
+      return;
+    }
+    
     if (!this.audioContextUnlocked) {
       console.log('AudioContext not unlocked yet, skipping sound:', soundName);
       return;
@@ -164,7 +176,7 @@ export class SoundSystem {
         if (sound.playing()) {
           // 루프 사운드는 볼륨만 보정하고 종료
           if (soundName === 'background' || soundName === 'swing') {
-            sound.volume(this.masterVolume);
+            sound.volume(this.isMuted ? 0 : this.masterVolume);
           }
           return;
         }
@@ -179,7 +191,7 @@ export class SoundSystem {
 
         this.lastPlayedAt.set(soundName, now);
 
-        sound.volume(this.masterVolume);
+        sound.volume(this.isMuted ? 0 : this.masterVolume);
         sound.play();
       } catch (error) {
         console.warn('Failed to play sound:', soundName, error);
@@ -216,10 +228,40 @@ export class SoundSystem {
 
   // 음소거/해제
   setMuted(muted: boolean): void {
+    this.isMuted = muted;
     if (muted) {
       this.sounds.forEach(sound => sound.volume(0));
     } else {
       this.sounds.forEach(sound => sound.volume(this.masterVolume));
+    }
+  }
+
+  // 음소거 상태 확인
+  isMutedState(): boolean {
+    return this.isMuted;
+  }
+
+  // AudioContext 잠금 해제 (외부에서 호출용)
+  async unlock(): Promise<void> {
+    if (!this.audioContextUnlocked) {
+      try {
+        // 사운드 초기화
+        this.initSounds();
+        
+        // Howler.js의 AudioContext 잠금 해제
+        if (Howler.ctx && Howler.ctx.state === 'suspended') {
+          await Howler.ctx.resume();
+        }
+        this.audioContextUnlocked = true;
+        console.log('AudioContext unlocked via unlock() method!');
+        
+        // 음소거 상태 재적용
+        if (this.isMuted) {
+          this.sounds.forEach(sound => sound.volume(0));
+        }
+      } catch (error) {
+        console.warn('Failed to unlock AudioContext:', error);
+      }
     }
   }
 
