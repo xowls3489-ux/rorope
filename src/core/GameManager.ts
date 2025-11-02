@@ -105,8 +105,36 @@ export class GameManager {
 
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
+    private drawStickman(): void {
+        this.player.clear();
+        this.player.lineStyle(2.5, 0xFFFFFF, 1);
+        
+        // 머리
+        this.player.beginFill(0xFFFFFF);
+        this.player.drawCircle(0, -10, 5);
+        this.player.endFill();
+        
+        // 몸통
+        this.player.moveTo(0, -5);
+        this.player.lineTo(0, 8);
+        
+        // 팔 (좌우)
+        this.player.moveTo(0, 0);
+        this.player.lineTo(-7, -3);
+        this.player.moveTo(0, 0);
+        this.player.lineTo(7, -3);
+        
+        // 다리 (좌우)
+        this.player.moveTo(0, 8);
+        this.player.lineTo(-5, 16);
+        this.player.moveTo(0, 8);
+        this.player.lineTo(5, 16);
+    }
+
     private initGameObjects(): void {
-        this.player = new PIXI.Graphics() as PlayerGraphics; this.player.beginFill(0xFFFFFF); this.player.drawCircle(0, 0, 15); this.player.endFill(); this.world.addChild(this.player);
+        this.player = new PIXI.Graphics() as PlayerGraphics;
+        this.drawStickman();
+        this.world.addChild(this.player);
         // 초기 위치는 나중에 startGame()에서 플랫폼 위에 정확히 배치됨
         // 여기서는 임시 위치만 설정 (화면 밖에 숨김)
         this.player.x = -100;
@@ -427,6 +455,13 @@ export class GameManager {
         this.player.y = playerPos.y; 
         this.player.visible = true; 
         this.player.alpha = 1; 
+        
+        // 속도에 따라 스틱맨 회전 (역동적인 느낌)
+        const velocityX = playerPos.velocityX;
+        const velocityY = playerPos.velocityY;
+        const angle = Math.atan2(velocityY, velocityX);
+        this.player.rotation = angle * 0.3; // 살짝만 회전
+        
         try { (this.player as any).scale?.set?.(1, 1); } catch {} 
     }
 
