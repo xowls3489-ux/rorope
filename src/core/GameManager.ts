@@ -74,25 +74,35 @@ export class GameManager {
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
     private initGameObjects(): void {
-        this.player = new PIXI.Graphics() as PlayerGraphics; this.player.beginFill(0xFFFFFF); this.player.drawCircle(0, 0, 15); this.player.endFill(); this.world.addChild(this.player);
+        // 1920x1080 기준으로 플레이어 크기 조정
+        this.player = new PIXI.Graphics() as PlayerGraphics; 
+        this.player.beginFill(0xFFFFFF); 
+        this.player.drawCircle(0, 0, 30); // 15 -> 30으로 증가 (1080p 기준)
+        this.player.endFill(); 
+        this.world.addChild(this.player);
         // 초기 위치는 나중에 startGame()에서 플랫폼 위에 정확히 배치됨
         // 여기서는 임시 위치만 설정 (화면 밖에 숨김)
         this.player.x = -100;
         this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
-        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
-        this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
-        this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
+        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 48, fill: COLORS.ui, align: 'center' });
+        this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 60; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
+        this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 72, fill: COLORS.ui, align: 'center' });
         this.gameOverText.x = GAME_CONFIG.width / 2; this.gameOverText.y = GAME_CONFIG.height / 2; this.gameOverText.anchor.set(0.5, 0.5); this.gameOverText.visible = false; this.stage.addChild(this.gameOverText);
     }
 
     private initInput(): void {
-        this.world.interactive = true;
-        this.world.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+        // stage 레벨에서 이벤트 처리 (게임 오버 텍스트가 가리는 것 방지)
+        this.stage.interactive = true;
+        this.stage.eventMode = 'static';
+        this.stage.hitArea = new PIXI.Rectangle(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+        
+        this.stage.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
             const currentState = gameState.get();
             
             // 게임 오버 상태면 재시작
             if (currentState.gameOver) {
+                console.log('게임 오버 상태에서 클릭 - 재시작');
                 this.restartGame();
                 return;
             }
@@ -106,6 +116,10 @@ export class GameManager {
             // 게임 진행 중: 로프 발사
             this.shootRopeTowardPoint(event.clientX, event.clientY);
         });
+        
+        // world도 interactive 유지
+        this.world.interactive = true;
+        this.world.eventMode = 'static';
         
         // pointerup 제거 - 모바일용 (탭만으로 로프 발사)
     }
@@ -220,7 +234,7 @@ export class GameManager {
         
         // 나머지 플랫폼은 화면 오른쪽까지 배치
         for (let i = 0; i < 8; i++) {
-            const gap = 180 + Math.random() * 70;
+            const gap = 360 + Math.random() * 140; // 1080p 기준 2배
             lastX = lastX + gap;
             
             // 상단 플랫폼 (1080 기준: 150~550)
@@ -275,7 +289,7 @@ export class GameManager {
             // 플레이어 중심이 플랫폼 상단보다 15px 위에 있어야 함 (플레이어 반지름 15)
             // 플레이어 하단 = 플레이어 중심 + 15 = 플랫폼 상단과 맞춤
             const platformTopY = startingPlatform.y;
-            const playerY = platformTopY - 15;
+            const playerY = platformTopY - 30; // 플레이어 반지름 30
             // 스크롤 방식: 플레이어는 고정 위치
             const playerX = GAME_CONFIG.playerFixedX;
             
@@ -284,7 +298,7 @@ export class GameManager {
                 playerY, 
                 playerX, 
                 platformWidth: pg.width,
-                playerBottom: playerY + 15,
+                playerBottom: playerY + 30,
                 platformHeight: GAME_CONFIG.platformHeight
             });
             
@@ -585,8 +599,8 @@ export class GameManager {
             // 스크롤 방식: 플레이어는 고정 X
             const onPlatform = currentPlatforms.find(p => { 
                 const pg = p as PlatformGraphics; 
-                const onX = GAME_CONFIG.playerFixedX + 15 > p.x && GAME_CONFIG.playerFixedX - 15 < p.x + pg.width; 
-                const onY = Math.abs(this.player!.platformY! - (p.y - 15)) <= 2; 
+                const onX = GAME_CONFIG.playerFixedX + 30 > p.x && GAME_CONFIG.playerFixedX - 30 < p.x + pg.width; 
+                const onY = Math.abs(this.player!.platformY! - (p.y - 30)) <= 2; 
                 return onX && onY; 
             });
             if (onPlatform) { 
@@ -615,12 +629,12 @@ export class GameManager {
             // 스크롤 방식: 플레이어는 고정 X
             const isHorizontallyAligned = GAME_CONFIG.playerFixedX >= left && GAME_CONFIG.playerFixedX <= right;
             const platformTop = platform.y;
-            const playerBottom = playerPos.y + 15;
+            const playerBottom = playerPos.y + 30; // 플레이어 반지름 30
             const isOnTop = playerBottom >= platformTop - 4 && playerBottom <= platformTop + 10;
             const isFallingDown = playerPos.velocityY > 0.2;
             
             if (isHorizontallyAligned && isOnTop && isFallingDown && !platformCast.landed) {
-                const snapY = platform.y - 15;
+                const snapY = platform.y - 30; // 플레이어 반지름 30
                 // 스크롤 방식: X는 고정 위치
                 const snapX = GAME_CONFIG.playerFixedX;
                 
@@ -681,9 +695,9 @@ export class GameManager {
         });
         
         // 화면 오른쪽에 플랫폼이 부족하면 생성
-        const spawnThreshold = GAME_CONFIG.width + 600;
+        const spawnThreshold = GAME_CONFIG.width + 1200; // 1080p 기준 2배
         if (rightmostPlatformEnd < spawnThreshold) { 
-            const gap = 180 + Math.random() * 70;
+            const gap = 360 + Math.random() * 140; // 1080p 기준 2배
             const x = rightmostPlatformEnd + gap;
             
             // 상단과 하단에 모두 플랫폼 생성 (1080 기준)
