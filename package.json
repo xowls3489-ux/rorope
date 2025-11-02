@@ -1,6 +1,6 @@
 {
   "name": "바밧줄",
-  "version": "1.2.0",
+  "version": "1.9.0",
   "description": "PixiJS 바밧줄",
   "type": "module",
   "main": "index.html",
