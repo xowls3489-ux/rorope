@@ -21,7 +21,7 @@ export class GameManager {
     private gameOverText!: PIXI.Text;
     private isSwingSoundPlaying: boolean = false;
     private bgTiles: PIXI.Graphics[] = [];
-    private bgTileWidth: number = 1920; // 게임 width와 동일
+    private bgTileWidth: number = 800; // 게임 width와 동일
     private bgSpeed: number = 0.4;
     private landingGraceFrames: number = 0;
     private readonly maxSpeedX: number = 18;
@@ -74,10 +74,9 @@ export class GameManager {
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
     private initGameObjects(): void {
-        // 1920x1080 기준으로 플레이어 크기 조정
         this.player = new PIXI.Graphics() as PlayerGraphics; 
         this.player.beginFill(0xFFFFFF); 
-        this.player.drawCircle(0, 0, 30); // 15 -> 30으로 증가 (1080p 기준)
+        this.player.drawCircle(0, 0, 15);
         this.player.endFill(); 
         this.world.addChild(this.player);
         // 초기 위치는 나중에 startGame()에서 플랫폼 위에 정확히 배치됨
@@ -85,9 +84,9 @@ export class GameManager {
         this.player.x = -100;
         this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
-        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 48, fill: COLORS.ui, align: 'center' });
+        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
         this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 60; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
-        this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 72, fill: COLORS.ui, align: 'center' });
+        this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
         this.gameOverText.x = GAME_CONFIG.width / 2; this.gameOverText.y = GAME_CONFIG.height / 2; this.gameOverText.anchor.set(0.5, 0.5); this.gameOverText.visible = false; this.stage.addChild(this.gameOverText);
     }
 
@@ -730,16 +729,16 @@ export class GameManager {
             return;
         }
         
-        // 게임 오버 체크: 플레이어 Y 좌표 직접 체크 (1080 기준)
-        const playerYTooLow = playerPos.y > 3600; // 바닥으로 너무 떨어짐
-        const playerYTooHigh = playerPos.y < -900; // 위로 너무 솟구침
+        // 게임 오버 체크: 플레이어 Y 좌표 직접 체크
+        const playerYTooLow = playerPos.y > 1000; // 바닥으로 너무 떨어짐
+        const playerYTooHigh = playerPos.y < -500; // 위로 너무 솟구침
         
         // 화면 좌표 계산: world.x와 world.y는 카메라 오프셋
         const screenX = playerPos.x + this.world.x;
         const screenY = playerPos.y + this.world.y;
         
         // 게임 오버 조건:
-        // - 플레이어 Y 좌표가 2000 이상 (바닥으로 너무 떨어짐)
+        // - 플레이어 Y 좌표가 1000 이상 (바닥으로 너무 떨어짐)
         // - 플레이어 Y 좌표가 -500 미만 (위로 너무 솟구침)
         // - 아래쪽: 화면 높이를 크게 벗어남
         const outBottom = screenY > GAME_CONFIG.height + 50;

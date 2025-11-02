@@ -1,28 +1,28 @@
 export const GAME_CONFIG = {
-    width: 1920,  // 게임 로직 해상도 (고정)
-    height: 1080, // 16:9 비율
-    gravity: 15,
-    ropeLength: 360, // 1080p 기준 2배
+    width: 800,
+    height: 600,
+    gravity: 0.8,
+    ropeLength: 180,
     damping: 0.995,
-    runSpeed: 6, // 1080p 기준 2배
-    runSpeedMax: 24, // 1080p 기준 2배
+    runSpeed: 3,
+    runSpeedMax: 12,
     runSpeedIncreasePerDistance: 0.003,
-    platformWidth: { min: 200, max: 300 }, // 1080p 기준 2배
-    platformHeight: 30, // 1080p 기준 2배
-    platformSpacing: { min: 400, max: 600 }, // 1080p 기준 2배
-    platformHeightVariation: 160, // 1080p 기준 2배
+    platformWidth: { min: 100, max: 150 },
+    platformHeight: 15,
+    platformSpacing: { min: 200, max: 300 },
+    platformHeightVariation: 80,
     // 그래플링 후크 파라미터
-    grappleShootSpeed: 5000, // 1080p 기준 2배
-    grappleMaxLength: 1500, // 1080p 기준 2배
-    grappleBasePullSpeed: 4800, // 1080p 기준 2배
-    grappleComboSpeedBonus: 300, // 1080p 기준 2배
+    grappleShootSpeed: 2500,
+    grappleMaxLength: 750,
+    grappleBasePullSpeed: 2400,
+    grappleComboSpeedBonus: 150,
     grappleEasingFactor: 0.35,
-    grappleReboundDistance: 40, // 1080p 기준 2배
+    grappleReboundDistance: 20,
     grappleMomentumBoost: 1.2,
     grappleCameraZoom: 0.95,
     // 스크롤 방식 설정
-    playerFixedX: 672, // 플레이어 고정 X 위치 (1920 * 0.35)
-    baseScrollSpeed: 10, // 기본 스크롤 속도 (1080p 기준 2배)
+    playerFixedX: 280, // 플레이어 고정 X 위치 (800 * 0.35)
+    baseScrollSpeed: 5, // 기본 스크롤 속도
 };
 
 export const COLORS = {
