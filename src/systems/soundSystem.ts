@@ -209,6 +209,20 @@ export class SoundSystem {
     });
   }
 
+  // 볼륨 가져오기
+  getVolume(): number {
+    return this.masterVolume;
+  }
+
+  // 음소거/해제
+  setMuted(muted: boolean): void {
+    if (muted) {
+      this.sounds.forEach(sound => sound.volume(0));
+    } else {
+      this.sounds.forEach(sound => sound.volume(this.masterVolume));
+    }
+  }
+
   // 모든 사운드 정지
   stopAll(): void {
     this.sounds.forEach(sound => {

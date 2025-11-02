@@ -4,18 +4,21 @@
   import { soundSystem } from '../systems/soundSystem';
 
   let soundEnabled = true;
-  let volume = 0.5;
+
+  // localStorage에서 사운드 설정 불러오기
+  onMount(() => {
+    const savedSoundEnabled = localStorage.getItem('soundEnabled');
+    if (savedSoundEnabled !== null) {
+      soundEnabled = savedSoundEnabled === 'true';
+      soundSystem.setMuted(!soundEnabled);
+    }
+  });
 
   function toggleSound() {
     soundEnabled = !soundEnabled;
-    soundSystem.setVolume(soundEnabled ? volume : 0);
-  }
-
-  function adjustVolume(event) {
-    volume = parseFloat(event.target.value);
-    if (soundEnabled) {
-      soundSystem.setVolume(volume);
-    }
+    soundSystem.setMuted(!soundEnabled);
+    // localStorage에 저장
+    localStorage.setItem('soundEnabled', soundEnabled.toString());
   }
 
   async function startGame() {
@@ -32,6 +35,23 @@
 </script>
 
 <div class="start-screen">
+  <!-- 사운드 토글 버튼 (우측 상단) -->
+  <button class="sound-toggle" on:click={toggleSound} aria-label="소리 켜기/끄기">
+    {#if soundEnabled}
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+      </svg>
+    {:else}
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+    {/if}
+  </button>
+
   <div class="start-content">
     <h1>바밧줄</h1>
     <button class="start-btn" on:click={startGame}>
@@ -52,6 +72,34 @@
     justify-content: center;
     align-items: center;
     pointer-events: auto;
+  }
+
+  .sound-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: transparent;
+    border: 2px solid #FFFFFF;
+    color: #FFFFFF;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+  }
+
+  .sound-toggle:hover {
+    background: #FFFFFF;
+    color: #000000;
+    transform: scale(1.1);
+  }
+
+  .sound-toggle:active {
+    transform: scale(0.95);
   }
 
   .start-content {
@@ -90,6 +138,18 @@
   }
 
   @media (max-width: 768px) {
+    .sound-toggle {
+      width: 48px;
+      height: 48px;
+      top: 16px;
+      right: 16px;
+    }
+
+    .sound-toggle svg {
+      width: 24px;
+      height: 24px;
+    }
+
     .start-content h1 {
       font-size: 2.5rem;
     }
