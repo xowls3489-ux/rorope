@@ -24,6 +24,10 @@ export class GameManager {
     private bgTileWidth: number = 800;
     private bgSpeed: number = 0.4;
     private landingGraceFrames: number = 0;
+    // 배경 요소들
+    private stars: Array<{graphic: PIXI.Graphics, baseAlpha: number, twinkleSpeed: number, twinklePhase: number}> = [];
+    private clouds: PIXI.Graphics[] = [];
+    private shootingStars: Array<{graphic: PIXI.Graphics, x: number, y: number, speed: number, respawnTimer: number}> = [];
     private readonly maxSpeedX: number = 18;
     private readonly maxSpeedY: number = 80;
     private cameraZoom: number = 0.85;
@@ -103,7 +107,78 @@ export class GameManager {
         window.addEventListener('orientationchange', handleResize);
     }
 
-    private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
+    private initBackground(): void { 
+        // 배경 타일
+        for (let i = 0; i < 2; i++) { 
+            const tile = new PIXI.Graphics(); 
+            tile.beginFill(COLORS.background); 
+            tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); 
+            tile.endFill(); 
+            tile.x = i * this.bgTileWidth; 
+            this.bgTiles.push(tile); 
+            this.bgLayer.addChild(tile); 
+        }
+        
+        // 별 추가 (100개)
+        for (let i = 0; i < 100; i++) {
+            const star = new PIXI.Graphics();
+            const size = Math.random() * 2 + 1; // 1-3px
+            star.beginFill(0xFFFFFF);
+            star.drawCircle(0, 0, size);
+            star.endFill();
+            star.x = Math.random() * GAME_CONFIG.width * 2;
+            star.y = Math.random() * GAME_CONFIG.height;
+            const baseAlpha = 0.3 + Math.random() * 0.7; // 0.3-1.0
+            star.alpha = baseAlpha;
+            this.bgLayer.addChild(star);
+            this.stars.push({
+                graphic: star,
+                baseAlpha: baseAlpha,
+                twinkleSpeed: 0.5 + Math.random() * 2, // 깜빡이는 속도
+                twinklePhase: Math.random() * Math.PI * 2 // 초기 위상
+            });
+        }
+        
+        // 구름 추가 (8개)
+        for (let i = 0; i < 8; i++) {
+            const cloud = new PIXI.Graphics();
+            cloud.beginFill(0xFFFFFF, 0.15); // 반투명
+            
+            // 둥근 구름 모양 (3개의 원으로)
+            cloud.drawCircle(0, 0, 20);
+            cloud.drawCircle(-15, 5, 15);
+            cloud.drawCircle(15, 5, 15);
+            cloud.endFill();
+            
+            cloud.x = Math.random() * GAME_CONFIG.width * 2;
+            cloud.y = Math.random() * GAME_CONFIG.height;
+            this.bgLayer.addChild(cloud);
+            this.clouds.push(cloud);
+        }
+        
+        // 유성 추가 (5개)
+        for (let i = 0; i < 5; i++) {
+            const shootingStar = new PIXI.Graphics();
+            shootingStar.lineStyle(1.5, 0xFFFFFF, 0.8);
+            shootingStar.moveTo(0, 0);
+            shootingStar.lineTo(20, 10);
+            
+            const x = Math.random() * GAME_CONFIG.width;
+            const y = Math.random() * GAME_CONFIG.height;
+            shootingStar.x = x;
+            shootingStar.y = y;
+            shootingStar.alpha = 0;
+            
+            this.bgLayer.addChild(shootingStar);
+            this.shootingStars.push({
+                graphic: shootingStar,
+                x: x,
+                y: y,
+                speed: 3 + Math.random() * 2,
+                respawnTimer: Math.random() * 300 // 랜덤 시작
+            });
+        }
+    }
 
     private drawStickman(armAngle?: number, velocityY?: number): void {
         this.player.clear();
@@ -627,11 +702,61 @@ export class GameManager {
     private updateBackground(): void { 
         // 스크롤 방식: scrollOffsetX 사용
         const scrollX = this.scrollOffsetX * this.bgSpeed; 
+        
+        // 배경 타일 스크롤
         for (let i = 0; i < this.bgTiles.length; i++) { 
             const tile = this.bgTiles[i]; 
             const baseX = (i % 2) * this.bgTileWidth; 
             tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); 
-        } 
+        }
+        
+        // 별 깜빡임 애니메이션
+        const time = performance.now() * 0.001; // 초 단위
+        this.stars.forEach(star => {
+            const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
+            star.graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3); // 0.7-1.0 범위
+            
+            // 별도 천천히 스크롤 (패럴랙스)
+            star.graphic.x -= scrollX * 0.1 * 0.016;
+            if (star.graphic.x < -50) {
+                star.graphic.x += GAME_CONFIG.width * 2;
+            }
+        });
+        
+        // 구름 이동 (패럴랙스 - 배경보다 느리게)
+        this.clouds.forEach(cloud => {
+            cloud.x -= scrollX * 0.2 * 0.016;
+            if (cloud.x < -100) {
+                cloud.x += GAME_CONFIG.width * 2;
+                cloud.y = Math.random() * GAME_CONFIG.height;
+            }
+        });
+        
+        // 유성 애니메이션
+        this.shootingStars.forEach(shootingStar => {
+            shootingStar.respawnTimer--;
+            
+            if (shootingStar.respawnTimer <= 0 && shootingStar.graphic.alpha === 0) {
+                // 새로운 유성 시작
+                shootingStar.x = GAME_CONFIG.width + Math.random() * 200;
+                shootingStar.y = Math.random() * GAME_CONFIG.height * 0.5; // 상단 절반
+                shootingStar.graphic.x = shootingStar.x;
+                shootingStar.graphic.y = shootingStar.y;
+                shootingStar.graphic.alpha = 1;
+                shootingStar.respawnTimer = 200 + Math.random() * 300; // 다음 출현 시간
+            }
+            
+            if (shootingStar.graphic.alpha > 0) {
+                // 유성 이동 (오른쪽 위에서 왼쪽 아래로)
+                shootingStar.graphic.x -= shootingStar.speed;
+                shootingStar.graphic.y += shootingStar.speed * 0.5;
+                
+                // 화면 밖으로 나가면 숨김
+                if (shootingStar.graphic.x < -50 || shootingStar.graphic.y > GAME_CONFIG.height) {
+                    shootingStar.graphic.alpha = 0;
+                }
+            }
+        });
     }
 
     private updatePullToAnchor(): void {
