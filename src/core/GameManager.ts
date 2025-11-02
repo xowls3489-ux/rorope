@@ -115,13 +115,26 @@ export class GameManager {
     }
 
     private initInput(): void {
+        // stage 레벨 이벤트 (UI 요소 클릭용)
+        this.stage.interactive = true;
+        this.stage.hitArea = new PIXI.Rectangle(0, 0, 10000, 10000);
+        this.stage.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+            const currentState = gameState.get();
+            
+            // 게임 오버 상태면 재시작 (stage 레벨에서 처리)
+            if (currentState.gameOver) {
+                this.restartGame();
+                return;
+            }
+        });
+        
+        // world 레벨 이벤트 (게임 플레이용)
         this.world.interactive = true;
         this.world.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
             const currentState = gameState.get();
             
-            // 게임 오버 상태면 재시작
+            // 게임 오버 상태는 stage에서 처리
             if (currentState.gameOver) {
-                this.restartGame();
                 return;
             }
             
