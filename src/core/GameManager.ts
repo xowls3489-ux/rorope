@@ -21,7 +21,7 @@ export class GameManager {
     private gameOverText!: PIXI.Text;
     private isSwingSoundPlaying: boolean = false;
     private bgTiles: PIXI.Graphics[] = [];
-    private bgTileWidth: number = 800;
+    private bgTileWidth: number = 1920; // 게임 width와 동일
     private bgSpeed: number = 0.4;
     private landingGraceFrames: number = 0;
     private readonly maxSpeedX: number = 18;
@@ -43,26 +43,10 @@ export class GameManager {
     constructor() { this.init(); }
 
     private async init(): Promise<void> {
-        // 모바일 해상도 대응: 화면 크기에 맞춰 16:9 비율 유지
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        const targetAspect = 16 / 9;
-        const screenAspect = screenWidth / screenHeight;
-        
-        let gameWidth, gameHeight;
-        if (screenAspect > targetAspect) {
-            // 화면이 더 넓음 (세로 기준)
-            gameHeight = screenHeight;
-            gameWidth = gameHeight * targetAspect;
-        } else {
-            // 화면이 더 좁음 (가로 기준)
-            gameWidth = screenWidth;
-            gameHeight = gameWidth / targetAspect;
-        }
-        
+        // 게임 로직은 고정 해상도 (1920x1080)
         this.app = new PIXI.Application({ 
-            width: gameWidth, 
-            height: gameHeight, 
+            width: GAME_CONFIG.width, 
+            height: GAME_CONFIG.height, 
             backgroundColor: COLORS.background, 
             antialias: true,
             autoDensity: true,
@@ -72,7 +56,8 @@ export class GameManager {
         const gameRoot = document.getElementById('game-root');
         (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
         
-        // 화면 크기 변경 시 대응
+        // 화면 크기에 맞게 스케일링
+        this.handleResize();
         window.addEventListener('resize', () => this.handleResize());
         
         this.stage = this.app.stage;
@@ -230,7 +215,7 @@ export class GameManager {
         
         // 스크롤 방식: 시작 플랫폼을 플레이어 고정 위치 근처에 배치
         const playerX = GAME_CONFIG.playerFixedX;
-        const startingPlatform = this.createPlatformNoAnimation(playerX - 50, GAME_CONFIG.height - 165); 
+        const startingPlatform = this.createPlatformNoAnimation(playerX - 50, GAME_CONFIG.height - 300); 
         let lastX = startingPlatform.x + startingPlatform.width; 
         
         // 나머지 플랫폼은 화면 오른쪽까지 배치
@@ -238,12 +223,12 @@ export class GameManager {
             const gap = 180 + Math.random() * 70;
             lastX = lastX + gap;
             
-            // 상단 플랫폼
-            const yTop = 80 + Math.random() * 200;
+            // 상단 플랫폼 (1080 기준: 150~550)
+            const yTop = 150 + Math.random() * 400;
             const platformTop = this.createPlatform(lastX, yTop);
             
-            // 하단 플랫폼
-            const yBottom = 350 + Math.random() * 170;
+            // 하단 플랫폼 (1080 기준: 630~930)
+            const yBottom = 630 + Math.random() * 300;
             const platformBottom = this.createPlatform(lastX + 20, yBottom);
             
             lastX = lastX + Math.max(platformTop.width, platformBottom.width);
@@ -322,8 +307,8 @@ export class GameManager {
         } else {
             // 플랫폼이 없으면 기본 위치 (스크롤 방식: 고정 X)
             this.player.x = GAME_CONFIG.playerFixedX;
-            this.player.y = GAME_CONFIG.height - 180;
-            gameActions.updatePlayerPosition(GAME_CONFIG.playerFixedX, GAME_CONFIG.height - 180);
+            this.player.y = GAME_CONFIG.height - 324;
+            gameActions.updatePlayerPosition(GAME_CONFIG.playerFixedX, GAME_CONFIG.height - 324);
             gameActions.updatePlayerVelocity(0, 0);
         }
         
@@ -701,11 +686,11 @@ export class GameManager {
             const gap = 180 + Math.random() * 70;
             const x = rightmostPlatformEnd + gap;
             
-            // 상단과 하단에 모두 플랫폼 생성
-            const yTop = 80 + Math.random() * 200;
+            // 상단과 하단에 모두 플랫폼 생성 (1080 기준)
+            const yTop = 150 + Math.random() * 400;
             const platformTop = this.createPlatform(x, yTop);
             
-            const yBottom = 350 + Math.random() * 170;
+            const yBottom = 630 + Math.random() * 300;
             const platformBottom = this.createPlatform(x + 20, yBottom);
         }
     }
@@ -721,18 +706,28 @@ export class GameManager {
     private handleResize(): void {
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
-        const targetAspect = 16 / 9;
-        const screenAspect = screenWidth / screenHeight;
         
-        let gameWidth, gameHeight;
-        if (screenAspect > targetAspect) {
-            gameHeight = screenHeight;
-            gameWidth = gameHeight * targetAspect;
-        } else {
-            gameWidth = screenWidth;
-            gameHeight = gameWidth / targetAspect;
-        }
+        // 게임 로직 해상도 (고정)
+        const gameWidth = GAME_CONFIG.width;
+        const gameHeight = GAME_CONFIG.height;
         
+        // 화면 비율 계산
+        const scaleX = screenWidth / gameWidth;
+        const scaleY = screenHeight / gameHeight;
+        
+        // 작은 쪽에 맞춰서 스케일링 (aspect ratio 유지)
+        const scale = Math.min(scaleX, scaleY);
+        
+        // 캔버스 크기 설정 (스케일 적용)
+        const scaledWidth = gameWidth * scale;
+        const scaledHeight = gameHeight * scale;
+        
+        // 캔버스 스타일 설정
+        const canvas = this.app.view as HTMLCanvasElement;
+        canvas.style.width = `${scaledWidth}px`;
+        canvas.style.height = `${scaledHeight}px`;
+        
+        // 렌더러 해상도는 고정 유지
         this.app.renderer.resize(gameWidth, gameHeight);
     }
 
@@ -743,9 +738,9 @@ export class GameManager {
             return;
         }
         
-        // 게임 오버 체크: 플레이어 Y 좌표 직접 체크
-        const playerYTooLow = playerPos.y > 2000; // 바닥으로 너무 떨어짐
-        const playerYTooHigh = playerPos.y < -500; // 위로 너무 솟구침
+        // 게임 오버 체크: 플레이어 Y 좌표 직접 체크 (1080 기준)
+        const playerYTooLow = playerPos.y > 3600; // 바닥으로 너무 떨어짐
+        const playerYTooHigh = playerPos.y < -900; // 위로 너무 솟구침
         
         // 화면 좌표 계산: world.x와 world.y는 카메라 오프셋
         const screenX = playerPos.x + this.world.x;

@@ -1,6 +1,6 @@
 export const GAME_CONFIG = {
-    width: 800,
-    height: 600,
+    width: 1920,  // 게임 로직 해상도 (고정)
+    height: 1080, // 16:9 비율
     gravity: 15,
     ropeLength: 180,
     damping: 0.995,
@@ -21,7 +21,7 @@ export const GAME_CONFIG = {
     grappleMomentumBoost: 1.2,
     grappleCameraZoom: 0.95,
     // 스크롤 방식 설정
-    playerFixedX: 280, // 플레이어 고정 X 위치
+    playerFixedX: 672, // 플레이어 고정 X 위치 (1920 * 0.35)
     baseScrollSpeed: 5, // 기본 스크롤 속도
 };
 
