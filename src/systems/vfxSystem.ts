@@ -243,39 +243,36 @@ export class VFXSystem {
     }
 
     /**
-     * 로프 발사 시 스파크 효과
+     * 로프 발사 시 스파크 효과 (흑백)
      */
     spawnRopeShootSpark(x: number, y: number, dirX: number, dirY: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        const count = 3 + Math.floor(Math.random() * 2); // 최적화: 3~4개로 감소
+        const count = 3 + Math.floor(Math.random() * 2);
         for (let i = 0; i < count; i++) {
             const angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 0.6;
             const speed = 5 + Math.random() * 4;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
-            const color = 0xffff00; // 노란색 스파크
             const size = 2 + Math.random() * 2;
-            this.spawnParticle(x, y, vx, vy, color, size);
+            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색
         }
     }
 
     /**
-     * 점수 획득 시 파티클 버스트 효과
+     * 점수 획득 시 파티클 버스트 효과 (흑백)
      */
     spawnScoreBurst(x: number, y: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        const count = 5 + Math.floor(Math.random() * 3); // 최적화: 5~7개로 감소
-        const colors = [0xffff00, 0xffaa00, 0xffffff, 0xffdd00]; // 노란색 계열
+        const count = 5 + Math.floor(Math.random() * 3);
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
             const speed = 3 + Math.random() * 4;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
-            const color = colors[Math.floor(Math.random() * colors.length)];
             const size = 3 + Math.random() * 2;
-            this.spawnParticle(x, y, vx, vy, color, size);
+            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색
         }
     }
 
@@ -334,19 +331,17 @@ export class VFXSystem {
     }
 
     /**
-     * 로프 트레일 파티클 (풀링 중 로프를 따라 생성)
+     * 로프 트레일 파티클 (흑백)
      */
     spawnRopeTrailParticles(playerX: number, playerY: number, anchorX: number, anchorY: number, combo: number = 0): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
-        // 로프를 따라 1-2개의 파티클 생성 (최적화)
         const count = 1 + Math.floor(Math.random() * 2);
         for (let i = 0; i < count; i++) {
-            const t = Math.random(); // 로프 상의 위치 (0 = 플레이어, 1 = 앵커)
+            const t = Math.random();
             const x = playerX + (anchorX - playerX) * t;
             const y = playerY + (anchorY - playerY) * t;
             
-            // 로프에 수직인 방향으로 약간 퍼지는 속도
             const dx = anchorX - playerX;
             const dy = anchorY - playerY;
             const len = Math.sqrt(dx * dx + dy * dy);
@@ -357,12 +352,8 @@ export class VFXSystem {
             const vx = perpX * speed * (Math.random() - 0.5) * 2;
             const vy = perpY * speed * (Math.random() - 0.5) * 2;
             
-            // 콤보가 높을수록 밝은 색상
-            const brightness = Math.min(255, 200 + combo * 10);
-            const color = (brightness << 16) | (brightness << 8) | brightness;
             const size = 2 + Math.random() * 1.5;
-            
-            this.spawnParticle(x, y, vx, vy, color, size);
+            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색
         }
     }
 
@@ -389,22 +380,10 @@ export class VFXSystem {
     }
 
     /**
-     * 콤보 증가 시 플레이어 주변 파티클 버스트
+     * 콤보 증가 시 플레이어 주변 파티클 버스트 (흑백)
      */
     spawnComboParticleBurst(x: number, y: number, combo: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
-
-        // 콤보에 따른 색상 결정
-        let color = 0xFFFFFF;
-        if (combo >= 7) {
-            color = 0xFF00FF; // 보라/핑크
-        } else if (combo >= 4) {
-            color = 0xFF4400; // 빨강/주황
-        } else if (combo >= 2) {
-            color = 0xFFDD00; // 노랑
-        } else if (combo >= 1) {
-            color = 0xFFFF88; // 밝은 노랑
-        }
 
         // 콤보가 높을수록 더 많은 파티클
         const count = Math.min(12, 6 + combo);
@@ -415,26 +394,20 @@ export class VFXSystem {
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
             const size = 3 + Math.random() * 2 + combo * 0.3;
-            this.spawnParticle(x, y, vx, vy, color, size);
+            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색
         }
     }
 
     /**
-     * 콤보 충격파 효과 (고콤보 시)
+     * 콤보 충격파 효과 (흑백)
      */
     spawnComboShockwave(x: number, y: number, combo: number): void {
         if (!this.fxLayer || combo < 3) return;
 
-        // 콤보에 따른 색상
-        let color = 0xFFDD00;
-        if (combo >= 7) {
-            color = 0xFF00FF;
-        } else if (combo >= 4) {
-            color = 0xFF4400;
-        }
-
         const shockwave = new PIXI.Graphics();
-        shockwave.lineStyle(3 + combo * 0.5, color, 0.8);
+        const lineWidth = 2 + combo * 0.3;
+        
+        shockwave.lineStyle(lineWidth, 0xFFFFFF, 0.7);
         shockwave.drawCircle(0, 0, 15);
         shockwave.x = x;
         shockwave.y = y;
@@ -448,11 +421,11 @@ export class VFXSystem {
             if (!shockwave.parent) return;
             
             const progress = frames / maxFrames;
-            const scale = 1 + progress * (4 + combo * 0.5);
+            const scale = 1 + progress * (3 + combo * 0.4);
             shockwave.scale.set(scale);
             shockwave.alpha = Math.max(0, 1.0 - progress);
             shockwave.clear();
-            shockwave.lineStyle(3 + combo * 0.5, color, 0.8 * (1 - progress));
+            shockwave.lineStyle(lineWidth * (1 - progress * 0.5), 0xFFFFFF, 0.7 * (1 - progress));
             shockwave.drawCircle(0, 0, 15);
 
             if (frames >= maxFrames) {
@@ -467,34 +440,86 @@ export class VFXSystem {
     }
 
     /**
-     * 플레이어 발쪽에서 위로 떠오르는 파티클 (지속 효과)
+     * 플레이어 발쪽에서 위로 떠오르는 파티클 (흑백)
      */
     spawnComboRisingParticles(x: number, y: number, combo: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0 || combo < 2) return;
-
-        // 콤보에 따른 색상
-        let color = 0xFFDD00;
-        if (combo >= 7) {
-            color = 0xFF00FF;
-        } else if (combo >= 4) {
-            color = 0xFF4400;
-        }
 
         // 콤보가 높을수록 더 많은 파티클 (2-4개)
         const particleCount = Math.min(4, 2 + Math.floor(combo / 3));
         
         for (let i = 0; i < particleCount; i++) {
-            // 플레이어 발 아래쪽에서 시작 (y + 10 ~ 15)
             const startY = y + 12 + Math.random() * 3;
-            const startX = x + (Math.random() - 0.5) * 20; // 좌우로 약간 분산
+            const startX = x + (Math.random() - 0.5) * 20;
             
-            // 위로 떠오르는 속도
-            const vx = (Math.random() - 0.5) * 1; // 좌우로 약간 흔들림
-            const vy = -2 - Math.random() * 2; // 위로 -2 ~ -4 속도
+            const vx = (Math.random() - 0.5) * 1;
+            const vy = -2 - Math.random() * 2;
             
             const size = 2 + Math.random() * 1.5 + combo * 0.15;
-            this.spawnParticle(startX, startY, vx, vy, color, size);
+            this.spawnParticle(startX, startY, vx, vy, 0xFFFFFF, size); // 흰색
         }
+    }
+
+    /**
+     * 플랫폼 파괴 효과 (흑백)
+     */
+    spawnPlatformExplosion(x: number, y: number): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
+
+        // 심플한 흰색 파티클 (10-12개)
+        const particleCount = 10 + Math.floor(Math.random() * 3);
+        
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 6 + Math.random() * 8;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            const size = 3 + Math.random() * 3;
+            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색만
+        }
+        
+        // 단일 충격파
+        this.spawnExplosionShockwave(x, y);
+    }
+    
+    /**
+     * 폭발 충격파 (흑백)
+     */
+    spawnExplosionShockwave(x: number, y: number): void {
+        if (!this.fxLayer) return;
+
+        const shockwave = new PIXI.Graphics();
+        
+        shockwave.lineStyle(3, 0xFFFFFF, 0.8);
+        shockwave.drawCircle(0, 0, 15);
+        shockwave.x = x;
+        shockwave.y = y;
+        shockwave.alpha = 1.0;
+        this.fxLayer.addChild(shockwave);
+
+        let frames = 0;
+        const maxFrames = 10;
+        const shockwaveTick = () => {
+            frames++;
+            if (!shockwave.parent) return;
+            
+            const progress = frames / maxFrames;
+            const scale = 1 + progress * 5;
+            shockwave.scale.set(scale);
+            shockwave.alpha = Math.max(0, 1.0 - progress);
+            shockwave.clear();
+            shockwave.lineStyle(3 * (1 - progress * 0.5), 0xFFFFFF, 0.8 * (1 - progress));
+            shockwave.drawCircle(0, 0, 15);
+
+            if (frames >= maxFrames) {
+                if (shockwave.parent) {
+                    this.fxLayer.removeChild(shockwave);
+                }
+                shockwave.destroy();
+            }
+        };
+
+        (shockwave as any).vfxExplosionShockwave = shockwaveTick;
     }
 
     /**
@@ -512,10 +537,10 @@ export class VFXSystem {
         // 안전 체크
         if (!this.slowMotionOverlay) return;
 
-        // 화면 전체를 덮는 반투명 파란색 오버레이
+        // 화면 전체를 덮는 반투명 회색 오버레이 (흑백)
         this.slowMotionOverlay.clear();
-        this.slowMotionOverlay.beginFill(0x00AAFF, 0.15); // 파란색, 15% 투명도
-        this.slowMotionOverlay.drawRect(0, 0, 10000, 10000); // 충분히 큰 사각형
+        this.slowMotionOverlay.beginFill(0xFFFFFF, 0.1); // 흰색, 10% 투명도
+        this.slowMotionOverlay.drawRect(0, 0, 10000, 10000);
         this.slowMotionOverlay.endFill();
         this.slowMotionOverlay.x = -5000;
         this.slowMotionOverlay.y = -5000;
@@ -582,6 +607,9 @@ export class VFXSystem {
                 }
                 if ((child as any).vfxShockwave) {
                     (child as any).vfxShockwave();
+                }
+                if ((child as any).vfxExplosionShockwave) {
+                    (child as any).vfxExplosionShockwave();
                 }
             });
         }

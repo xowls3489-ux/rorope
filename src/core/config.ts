@@ -35,6 +35,12 @@ export const GAME_CONFIG = {
     slowMotionDuration: 2000, // 슬로우 모션 지속 시간 (밀리초)
     slowMotionComboThreshold: 10, // 슬로우 모션 활성화 콤보 수
     slowMotionDangerDistance: 100, // 화면 밖으로 이 거리만큼 가까워지면 위험
+    // 무적 모드 설정
+    invincibleDuration: 3000, // 무적 모드 지속 시간 (밀리초)
+    invincibleSpeed: 15, // 무적 모드 비행 속도
+    invincibleTargetY: 0.5, // 화면 중앙 비율 (0.5 = 50% 높이)
+    starSpawnChance: 0.05, // 별 생성 확률 (5%)
+    starMinDistance: 8000, // 별 생성 최소 거리 (80m)
 };
 
 export const COLORS = {

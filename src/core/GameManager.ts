@@ -49,9 +49,12 @@ export class GameManager {
     private frameCounter: number = 0; // 최적화용 프레임 카운터
     private comboVfxCounter: number = 0; // 콤보 VFX 생성 카운터
     private slowMotionEndTime: number = 0; // 슬로우 모션 종료 시간
+    private invincibleEndTime: number = 0; // 무적 모드 종료 시간
     // 오브젝트 풀링
     private platformPool: PlatformGraphics[] = [];
     private readonly platformPoolSize: number = 30;
+    // 파워업 아이템
+    private powerupStars: Array<{graphic: PIXI.Graphics, collected: boolean}> = []; // 별 아이템 (수집용)
     // 스크롤 방식 변수
     private scrollOffsetX: number = 0; // 누적 스크롤 거리 (플레이어가 "이동한" 거리)
     
@@ -362,6 +365,11 @@ export class GameManager {
     private shootRopeTowardPoint(clientX: number, clientY: number): void {
         const currentState = gameState.get();
         
+        // 무적 모드일 때는 로프 발사 불가
+        if (currentState.isInvincible) {
+            return;
+        }
+        
         // 첫 로프 발사 시 게임 시작 (플랫폼은 이미 생성되어 있으므로 isPlaying만 true로 설정)
         if (!currentState.isPlaying) {
             gameState.setKey('isPlaying', true);
@@ -503,14 +511,14 @@ export class GameManager {
         const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
         const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
         
-        // 이동 플랫폼 시각적 차별화 (파란색)
+        // 이동 플랫폼 시각적 차별화 (흑백 - 회색)
         targetPlatform.clear();
-        targetPlatform.beginFill(0x00AAFF); // 파란색
+        targetPlatform.beginFill(0x888888); // 밝은 회색
         targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
         targetPlatform.endFill();
         
         // 외곽 글로우 효과
-        targetPlatform.lineStyle(2, 0x00DDFF, 0.5);
+        targetPlatform.lineStyle(2, 0xCCCCCC, 0.4);
         targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
         
         targetPlatform.x = x;
@@ -548,14 +556,14 @@ export class GameManager {
         const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
         const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
         
-        // 수직 이동 플랫폼 시각적 차별화 (녹색)
+        // 수직 이동 플랫폼 시각적 차별화 (흑백 - 어두운 회색)
         targetPlatform.clear();
-        targetPlatform.beginFill(0x00FF88); // 녹색
+        targetPlatform.beginFill(0x666666); // 어두운 회색
         targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
         targetPlatform.endFill();
         
         // 외곽 글로우 효과
-        targetPlatform.lineStyle(2, 0x00FFAA, 0.5);
+        targetPlatform.lineStyle(2, 0x999999, 0.4);
         targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
         
         targetPlatform.x = x;
@@ -617,7 +625,7 @@ export class GameManager {
         // 스크롤 방식: 시작 플랫폼을 플레이어 고정 위치 근처에 배치
         const playerX = GAME_CONFIG.playerFixedX;
         const startingPlatform = this.createPlatformNoAnimation(playerX - 50, GAME_CONFIG.height - 165); 
-        let lastX = startingPlatform.x + startingPlatform.width; 
+        let lastX = startingPlatform.x + startingPlatform.width;
         
         // 나머지 플랫폼은 화면 오른쪽까지 배치
         for (let i = 0; i < 8; i++) {
@@ -773,6 +781,13 @@ export class GameManager {
             pg.initialY = undefined;
         });
         gameActions.clearPlatforms();
+        
+        // 별 아이템 정리
+        this.powerupStars.forEach(starData => {
+            this.world.removeChild(starData.graphic);
+        });
+        this.powerupStars = [];
+        
         this.isSwingSoundPlaying = false;
         this.startGame();
     }
@@ -791,19 +806,9 @@ export class GameManager {
         if (combo > 0) {
             this.comboText.text = `${combo} COMBO`;
             this.comboText.visible = true;
+            this.comboText.style.fill = 0xFFFFFF; // 흰색 통일
             
-            // 콤보에 따른 색상 변화
-            if (combo >= 7) {
-                this.comboText.style.fill = 0xFF00FF; // 보라/핑크
-            } else if (combo >= 4) {
-                this.comboText.style.fill = 0xFF4400; // 빨강/주황
-            } else if (combo >= 2) {
-                this.comboText.style.fill = 0xFFDD00; // 노랑
-            } else {
-                this.comboText.style.fill = 0xFFFF88; // 밝은 노랑
-            }
-            
-            // 콤보가 높을수록 크기 증가 (애니메이션 효과)
+            // 콤보가 높을수록 크기 증가
             const baseSize = 28;
             const sizeBoost = Math.min(12, combo * 1.5);
             this.comboText.style.fontSize = baseSize + sizeBoost;
@@ -876,6 +881,93 @@ export class GameManager {
         vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, 10); // 강한 충격파
         vfxSystem.showSlowMotionOverlay(); // 화면 오버레이 표시
     }
+    
+    private activateInvincibleMode(): void {
+        gameActions.activateInvincible();
+        this.invincibleEndTime = Date.now() + GAME_CONFIG.invincibleDuration;
+        
+        // 로프 해제
+        gameActions.setSwinging(false);
+        ropeState.setKey('isActive', false);
+        ropeState.setKey('isFlying', false);
+        ropeState.setKey('isPulling', false);
+        
+        // VFX: 무적 모드 시작 효과
+        const playerPos = playerState.get();
+        vfxSystem.spawnComboParticleBurst(playerPos.x, playerPos.y, 15); // 큰 파티클 버스트
+        vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, 15); // 강력한 충격파
+        
+        console.log('[무적 모드] 활성화!');
+    }
+    
+    private updateInvincibleMode(): void {
+        const game = gameState.get();
+        
+        // 무적 모드 종료 체크
+        if (game.isInvincible && Date.now() > this.invincibleEndTime) {
+            gameActions.deactivateInvincible();
+            console.log('[무적 모드] 종료');
+        }
+        
+        // 무적 모드 활성화 중
+        if (game.isInvincible) {
+            const playerPos = playerState.get();
+            
+            // 화면 중앙으로 부드럽게 이동
+            const targetY = GAME_CONFIG.height * GAME_CONFIG.invincibleTargetY;
+            const dy = targetY - playerPos.y;
+            const smoothY = playerPos.y + dy * 0.1;
+            
+            // x 방향으로 빠르게 전진
+            const newX = playerPos.x + GAME_CONFIG.invincibleSpeed;
+            
+            gameActions.updatePlayerPosition(newX, smoothY);
+            gameActions.updatePlayerVelocity(GAME_CONFIG.invincibleSpeed, 0);
+            
+            // 플랫폼 파괴 체크
+            this.destroyPlatformsInPath(playerPos.x, playerPos.y);
+            
+            // 무적 모드 파티클 효과 (매 프레임)
+            if (this.frameCounter % 2 === 0) {
+                vfxSystem.spawnComboRisingParticles(playerPos.x, playerPos.y, 10);
+            }
+        }
+    }
+    
+    private destroyPlatformsInPath(playerX: number, playerY: number): void {
+        const currentPlatforms = platforms.get();
+        const destroyRadius = 200; // 파괴 반경 (넓게)
+        
+        currentPlatforms.forEach(platform => {
+            const pg = platform as PlatformGraphics;
+            if (!pg.visible) return;
+            
+            // 플랫폼 중심점 계산
+            const platformCenterX = pg.x + pg.width / 2;
+            const platformCenterY = pg.y + pg.height / 2;
+            
+            // 거리 체크
+            const dx = playerX - platformCenterX;
+            const dy = playerY - platformCenterY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < destroyRadius) {
+                // 플랫폼 파괴 대폭발 효과!
+                vfxSystem.spawnPlatformExplosion(platformCenterX, platformCenterY);
+                vfxSystem.triggerScreenShake(this.stage);
+                
+                // 플랫폼 비활성화 (즉시)
+                pg.visible = false;
+                (pg as any).inUse = false;
+                pg.isMoving = false;
+                pg.moveType = undefined;
+            }
+        });
+        
+        // 비활성화된 플랫폼 제거
+        const activePlatforms = currentPlatforms.filter(p => p.visible);
+        platforms.set(activePlatforms);
+    }
 
     private update(): void {
         const currentState = gameState.get(); if (!currentState.isPlaying) return;
@@ -883,46 +975,72 @@ export class GameManager {
         // 슬로우 모션 체크 및 업데이트
         this.updateSlowMotion();
         
-        // 슬로우 모션 적용: dt 계산
-        const timeScale = currentState.isSlowMotion ? GAME_CONFIG.slowMotionScale : 1.0;
+        // 무적 모드 체크 및 업데이트
+        this.updateInvincibleMode();
+        
+        // 슬로우 모션 적용: dt 계산 (무적 모드 시 슬로우 모션 무시)
+        const timeScale = (!currentState.isInvincible && currentState.isSlowMotion) ? GAME_CONFIG.slowMotionScale : 1.0;
         const dt = 0.016 * timeScale; // 기본 60fps에서 슬로우 모션 적용
         
         try {
-            const rope = ropeState.get(); 
-            if (rope.isFlying) { 
-                ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, dt); 
-                this.updateFreeFallPhysics(dt); 
-            } else if (rope.isPulling) { 
-                this.updatePullToAnchor(dt); 
-                // 풀링 중 카메라 줌인 (기본 줌에서 약간만)
-                this.targetCameraZoom = this.baseCameraZoom * GAME_CONFIG.grappleCameraZoom;
-            } else { 
-                this.updateFreeFallPhysics(dt); 
-                // 풀링 중이 아니면 카메라 줌 복구
-                this.targetCameraZoom = this.baseCameraZoom;
+            // 무적 모드일 때는 일반 물리 무시
+            if (!currentState.isInvincible) {
+                const rope = ropeState.get(); 
+                if (rope.isFlying) { 
+                    ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, dt); 
+                    this.updateFreeFallPhysics(dt); 
+                } else if (rope.isPulling) { 
+                    this.updatePullToAnchor(dt); 
+                    // 풀링 중 카메라 줌인 (기본 줌에서 약간만)
+                    this.targetCameraZoom = this.baseCameraZoom * GAME_CONFIG.grappleCameraZoom;
+                } else { 
+                    this.updateFreeFallPhysics(dt); 
+                    // 풀링 중이 아니면 카메라 줌 복구
+                    this.targetCameraZoom = this.baseCameraZoom;
+                }
             }
+            
             this.updateCameraZoom();
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); 
             this.updateMovingPlatforms(); // 이동 플랫폼 업데이트
-            this.managePlatforms(); this.drawRope();
+            this.updatePowerupStars(); // 별 아이템 업데이트
+            this.managePlatforms(); 
+            
+            // 무적 모드가 아닐 때만 로프 그리기
+            if (!currentState.isInvincible) {
+                this.drawRope();
+            }
+            
             this.updateScore(); // 매 프레임마다 거리 업데이트
             this.updateCombo(); // 콤보 UI 업데이트
             this.updateComboVFX(); // 콤보 VFX 효과
             vfxSystem.update(); // VFX 시스템 업데이트 (파티클 이동, fxLayer 페이드)
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
-        this.checkGameOver();
+        
+        // 무적 모드가 아닐 때만 게임 오버 체크
+        if (!currentState.isInvincible) {
+            this.checkGameOver();
+        }
     }
 
     private updatePlayerGraphics(): void { 
         if (!this.player) return; 
         const playerPos = playerState.get(); 
         const rope = ropeState.get();
+        const game = gameState.get();
         
         // 스크롤 방식: 플레이어는 항상 고정 X 위치에 렌더링
         this.player.x = GAME_CONFIG.playerFixedX; 
         this.player.y = playerPos.y; 
         this.player.visible = true; 
-        this.player.alpha = 1; 
+        
+        // 무적 모드 시 반짝이는 효과
+        if (game.isInvincible) {
+            const time = performance.now() * 0.01;
+            this.player.alpha = 0.7 + Math.sin(time) * 0.3;
+        } else {
+            this.player.alpha = 1;
+        } 
         
         // 로프 발사/당기기 중일 때 팔 애니메이션
         if (rope.isFlying || rope.isPulling || rope.isActive) {
@@ -1291,8 +1409,92 @@ export class GameManager {
         });
     }
     
+    private spawnPowerupStar(x: number, y: number): void {
+        const star = new PIXI.Graphics();
+        
+        // 5각 별 모양 그리기 (흑백)
+        star.beginFill(0xFFFFFF); // 흰색
+        const points: number[] = [];
+        const outerRadius = 15;
+        const innerRadius = 6;
+        
+        for (let i = 0; i < 10; i++) {
+            const angle = (i * Math.PI) / 5 - Math.PI / 2;
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            points.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        star.drawPolygon(points);
+        star.endFill();
+        
+        // 외곽 글로우
+        star.lineStyle(3, 0xFFFFFF, 0.5);
+        star.drawPolygon(points);
+        
+        star.x = x;
+        star.y = y;
+        (star as any).baseX = x; // 스크롤용
+        
+        this.world.addChild(star);
+        this.powerupStars.push({ graphic: star, collected: false });
+        
+        // 반짝이는 애니메이션
+        (star as any).twinklePhase = Math.random() * Math.PI * 2;
+    }
+    
+    private updatePowerupStars(): void {
+        const playerPos = playerState.get();
+        const scrollX = this.scrollOffsetX * this.bgSpeed;
+        const time = performance.now() * 0.001;
+        
+        for (let i = this.powerupStars.length - 1; i >= 0; i--) {
+            const starData = this.powerupStars[i];
+            const star = starData.graphic;
+            
+            if (starData.collected) continue;
+            
+            // 스크롤 적용
+            const baseX = (star as any).baseX || star.x;
+            star.x = baseX - this.scrollOffsetX;
+            
+            // 반짝이는 효과
+            const twinkle = Math.sin(time * 3 + (star as any).twinklePhase);
+            star.alpha = 0.7 + twinkle * 0.3;
+            star.scale.set(1 + twinkle * 0.1);
+            
+            // 충돌 감지 (플레이어와 별)
+            const dx = playerPos.x - star.x;
+            const dy = playerPos.y - star.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < 30) {
+                // 별 수집!
+                starData.collected = true;
+                star.visible = false;
+                this.activateInvincibleMode();
+                soundSystem.play('ropeShoot'); // 임시 사운드
+            }
+            
+            // 화면 밖으로 나가면 제거
+            if (star.x < -100) {
+                this.world.removeChild(star);
+                this.powerupStars.splice(i, 1);
+            }
+        }
+    }
+    
     private managePlatforms(): void {
         const currentPlatforms = platforms.get();
+        
+        // 별 아이템 생성 (80m 이후부터 5% 확률)
+        const shouldSpawnStar = this.scrollOffsetX >= GAME_CONFIG.starMinDistance && 
+                                Math.random() < GAME_CONFIG.starSpawnChance &&
+                                this.powerupStars.filter(s => !s.collected).length < 3; // 최대 3개
+        
+        if (shouldSpawnStar) {
+            const starX = GAME_CONFIG.width + 400 + Math.random() * 200;
+            const starY = 100 + Math.random() * (GAME_CONFIG.height - 300);
+            this.spawnPowerupStar(starX, starY);
+        }
         
         // 화면 왼쪽 밖으로 나간 플랫폼 비활성화 (풀링)
         const filteredPlatforms = currentPlatforms.filter(platform => { 

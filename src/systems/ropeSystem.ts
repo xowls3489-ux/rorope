@@ -134,46 +134,24 @@ export class RopeSystem {
 
         graphics.clear();
         
-        // 콤보에 따른 색상 변화
+        // 흑백 디자인: 콤보에 따라 두께와 글로우 강도만 증가
         const combo = game.combo || 0;
-        let ropeBaseColor = 0xFFFFFF; // 흰색
-        let glowColor = 0xFFFFFF;
+        const glowIntensity = 0.1 + combo * 0.02;
+        const glowSize = 8 + combo * 1.5;
         
-        if (combo >= 7) {
-            // 콤보 7+: 보라색/핑크
-            ropeBaseColor = 0xFF00FF;
-            glowColor = 0xFF66FF;
-        } else if (combo >= 4) {
-            // 콤보 4-6: 빨강/주황
-            ropeBaseColor = 0xFF4400;
-            glowColor = 0xFF8844;
-        } else if (combo >= 2) {
-            // 콤보 2-3: 노란색/골드
-            ropeBaseColor = 0xFFDD00;
-            glowColor = 0xFFFF44;
-        } else if (combo >= 1) {
-            // 콤보 1: 밝은 노랑
-            ropeBaseColor = 0xFFFF88;
-            glowColor = 0xFFFFCC;
-        }
-        
-        // 그리기 (다층 글로우 효과)
+        // 그리기 (다층 글로우 효과 - 흑백)
         const drawRopeLine = (fromX: number, fromY: number, toX: number, toY: number) => {
-            // 최외곽 글로우 (가장 넓고 투명) - 3겹
-            graphics.lineStyle(16, glowColor, 0.05 + combo * 0.01);
+            // 외곽 글로우 (흰색, 투명도로 강도 조절)
+            graphics.lineStyle(glowSize, 0xFFFFFF, glowIntensity);
             graphics.moveTo(fromX, fromY);
             graphics.lineTo(toX, toY);
             
-            graphics.lineStyle(12, glowColor, 0.1 + combo * 0.015);
+            graphics.lineStyle(glowSize * 0.7, 0xFFFFFF, glowIntensity * 1.5);
             graphics.moveTo(fromX, fromY);
             graphics.lineTo(toX, toY);
             
-            graphics.lineStyle(8, glowColor, 0.2 + combo * 0.02);
-            graphics.moveTo(fromX, fromY);
-            graphics.lineTo(toX, toY);
-            
-            // 중심선 (선명한 색상)
-            graphics.lineStyle(3, ropeBaseColor, 1);
+            // 중심선 (선명한 흰색)
+            graphics.lineStyle(2 + combo * 0.3, 0xFFFFFF, 1);
             graphics.moveTo(fromX, fromY);
             graphics.lineTo(toX, toY);
         };
@@ -185,21 +163,17 @@ export class RopeSystem {
         } else if (rope.isActive) {
             drawRopeLine(playerPos.x, playerPos.y, rope.anchorX, rope.anchorY);
             
-            // 앵커 포인트에 빛나는 원 추가
-            const anchorGlowSize = 8 + combo * 2;
+            // 앵커 포인트 (심플하게)
+            const anchorSize = 6 + combo * 0.5;
             
             // 외곽 글로우
-            graphics.beginFill(glowColor, 0.1 + combo * 0.02);
-            graphics.drawCircle(rope.anchorX, rope.anchorY, anchorGlowSize);
+            graphics.beginFill(0xFFFFFF, glowIntensity);
+            graphics.drawCircle(rope.anchorX, rope.anchorY, anchorSize * 2);
             graphics.endFill();
             
-            graphics.beginFill(glowColor, 0.3 + combo * 0.03);
-            graphics.drawCircle(rope.anchorX, rope.anchorY, anchorGlowSize * 0.6);
-            graphics.endFill();
-            
-            // 중심 빛나는 점
-            graphics.beginFill(ropeBaseColor, 1);
-            graphics.drawCircle(rope.anchorX, rope.anchorY, 4);
+            // 중심 점
+            graphics.beginFill(0xFFFFFF, 1);
+            graphics.drawCircle(rope.anchorX, rope.anchorY, anchorSize);
             graphics.endFill();
         }
     }

@@ -12,6 +12,7 @@ export interface GameState {
   combo: number; // 콤보 카운터
   isSlowMotion: boolean; // 슬로우 모션 활성화 여부
   lastComboMilestone: number; // 마지막 슬로우 모션 발동 콤보
+  isInvincible: boolean; // 무적 모드 (별 파워업)
 }
 
 // 플레이어 상태 인터페이스
@@ -53,7 +54,8 @@ export const gameState = map<GameState>({
   gameOver: false,
   combo: 0,
   isSlowMotion: false,
-  lastComboMilestone: 0
+  lastComboMilestone: 0,
+  isInvincible: false
 });
 
 // 플레이어 상태 스토어
@@ -98,6 +100,7 @@ export const gameActions = {
     gameState.setKey('combo', 0);
     gameState.setKey('isSlowMotion', false);
     gameState.setKey('lastComboMilestone', 0);
+    gameState.setKey('isInvincible', false);
     
     // 플레이어 위치는 플랫폼 생성 후 GameManager에서 설정
     // 여기서는 기본값만 설정 (실제 위치는 나중에 업데이트됨)
@@ -235,5 +238,13 @@ export const gameActions = {
 
   updateComboMilestone: (milestone: number) => {
     gameState.setKey('lastComboMilestone', milestone);
+  },
+
+  activateInvincible: () => {
+    gameState.setKey('isInvincible', true);
+  },
+
+  deactivateInvincible: () => {
+    gameState.setKey('isInvincible', false);
   }
 };
