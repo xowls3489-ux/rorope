@@ -105,7 +105,7 @@ export class GameManager {
 
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }
 
-    private drawStickman(): void {
+    private drawStickman(armAngle?: number): void {
         this.player.clear();
         this.player.lineStyle(2.5, 0xFFFFFF, 1);
         
@@ -118,11 +118,26 @@ export class GameManager {
         this.player.moveTo(0, -5);
         this.player.lineTo(0, 8);
         
-        // 팔 (좌우)
-        this.player.moveTo(0, 0);
-        this.player.lineTo(-7, -3);
-        this.player.moveTo(0, 0);
-        this.player.lineTo(7, -3);
+        if (armAngle !== undefined) {
+            // 로프 발사 중: 한쪽 팔을 로프 방향으로 뻗기
+            const armLength = 10;
+            const armX = Math.cos(armAngle) * armLength;
+            const armY = Math.sin(armAngle) * armLength;
+            
+            // 발사하는 팔 (로프 방향)
+            this.player.moveTo(0, 0);
+            this.player.lineTo(armX, armY);
+            
+            // 반대쪽 팔 (기본 위치)
+            this.player.moveTo(0, 0);
+            this.player.lineTo(-7, -3);
+        } else {
+            // 기본 팔 (좌우)
+            this.player.moveTo(0, 0);
+            this.player.lineTo(-7, -3);
+            this.player.moveTo(0, 0);
+            this.player.lineTo(7, -3);
+        }
         
         // 다리 (좌우)
         this.player.moveTo(0, 8);
@@ -450,11 +465,25 @@ export class GameManager {
     private updatePlayerGraphics(): void { 
         if (!this.player) return; 
         const playerPos = playerState.get(); 
+        const rope = ropeState.get();
+        
         // 스크롤 방식: 플레이어는 항상 고정 X 위치에 렌더링
         this.player.x = GAME_CONFIG.playerFixedX; 
         this.player.y = playerPos.y; 
         this.player.visible = true; 
         this.player.alpha = 1; 
+        
+        // 로프 발사/당기기 중일 때 팔 애니메이션
+        if (rope.isFlying || rope.isPulling || rope.isActive) {
+            // 로프 방향으로 팔 뻗기
+            const dx = rope.anchorX - playerPos.x;
+            const dy = rope.anchorY - playerPos.y;
+            const armAngle = Math.atan2(dy, dx);
+            this.drawStickman(armAngle);
+        } else {
+            // 기본 스틱맨
+            this.drawStickman();
+        }
         
         // 속도에 따라 스틱맨 회전 (역동적인 느낌)
         const velocityX = playerPos.velocityX;
