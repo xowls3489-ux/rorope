@@ -32,10 +32,21 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync android
     
+    - name: Decode and setup keystore
+      env:
+        KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+      run: |
+        echo "$KEYSTORE_FILE" | base64 --decode > android/app/release.keystore
+    
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
     
     - name: Build Android AAB
+      env:
+        KEYSTORE_FILE: 'release.keystore'
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: cd android && ./gradlew bundleRelease
     
     - name: Upload AAB

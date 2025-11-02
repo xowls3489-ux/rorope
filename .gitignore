@@ -34,6 +34,9 @@ android/.idea/
 android/local.properties
 *.keystore
 *.jks
+*_base64.txt
+rorope_key.keystore
+rorope_key_base64.txt
 
 # iOS
 ios/App/Pods/

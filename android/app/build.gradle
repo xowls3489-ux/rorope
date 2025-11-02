@@ -16,10 +16,33 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    
+    signingConfigs {
+        release {
+            if (System.getenv('KEYSTORE_FILE')) {
+                // GitHub Actions 환경
+                def keystoreFile = file('release.keystore')
+                storeFile keystoreFile
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            } else if (file('../../rorope_key.keystore').exists()) {
+                // 로컬 빌드 환경
+                storeFile file('../../rorope_key.keystore')
+                storePassword 'gudwls0203'
+                keyAlias 'rorope_key'
+                keyPassword 'gudwls0203'
+            }
+        }
+    }
+    
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
