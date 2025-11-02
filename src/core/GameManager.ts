@@ -439,43 +439,21 @@ export class GameManager {
         // 카메라 X축은 고정 (이동하지 않음)
         const worldX = 0;
         
-        // Y축 추적 (수직)
-        const viewH = GAME_CONFIG.height;
-        const deadZoneY = 150;
-        const currentWorldY = this.world.y || 0;
-        let targetWorldY = currentWorldY;
-        const playerScreenY = playerPos.y + currentWorldY;
-        const topBound = viewH / 2 - deadZoneY;
-        const bottomBound = viewH / 2 + deadZoneY;
+        // Y축도 고정 (전체 화면 보기)
+        const newWorldY = 0;
         
-        if (playerScreenY < topBound) {
-            const offset = topBound - playerScreenY;
-            targetWorldY += offset;
-        } else if (playerScreenY > bottomBound) {
-            const offset = playerScreenY - bottomBound;
-            if (playerScreenY > viewH + 50) {
-                targetWorldY = currentWorldY;
-            } else {
-                targetWorldY -= offset;
-            }
-        }
-        
-        // Y축 스무스 추적
-        const cameraSpeedY = 0.15;
-        const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * cameraSpeedY;
-        
-        // world 위치 설정 (X는 0 고정)
+        // world 위치 설정 (X, Y 모두 고정)
         this.world.x = worldX;
         this.world.y = newWorldY;
         
         // hitArea 설정
         const scale = this.world.scale.x || 1.0;
-        this.world.hitArea = new PIXI.Rectangle(-1000, -1000, 3000, 3000);
+        this.world.hitArea = new PIXI.Rectangle(0, 0, GAME_CONFIG.width * 2, GAME_CONFIG.height * 2);
         
-        // fxLayer 동기화 (X는 0)
+        // fxLayer 동기화 (X, Y 모두 0)
         if (this.fxLayer) {
             this.fxLayer.x = 0;
-            this.fxLayer.y = newWorldY;
+            this.fxLayer.y = 0;
         }
         
         // 거리 업데이트 (scrollOffsetX 사용)
