@@ -142,12 +142,15 @@ export class GameManager {
         // 구름 추가 (8개)
         for (let i = 0; i < 8; i++) {
             const cloud = new PIXI.Graphics();
-            cloud.beginFill(0xFFFFFF, 0.15); // 반투명
+            cloud.beginFill(0xFFFFFF, 0.2); // 조금 더 진하게
             
-            // 둥근 구름 모양 (3개의 원으로)
-            cloud.drawCircle(0, 0, 20);
-            cloud.drawCircle(-15, 5, 15);
-            cloud.drawCircle(15, 5, 15);
+            // 더 예쁜 구름 모양 (5개의 원으로 자연스럽게)
+            const scale = 0.8 + Math.random() * 0.4; // 크기 다양화
+            cloud.drawCircle(0, 0, 25 * scale);
+            cloud.drawCircle(-20 * scale, 8 * scale, 18 * scale);
+            cloud.drawCircle(20 * scale, 8 * scale, 18 * scale);
+            cloud.drawCircle(-10 * scale, -5 * scale, 15 * scale);
+            cloud.drawCircle(10 * scale, -5 * scale, 15 * scale);
             cloud.endFill();
             
             cloud.x = Math.random() * GAME_CONFIG.width * 2;
@@ -712,22 +715,41 @@ export class GameManager {
         
         // 별 깜빡임 애니메이션
         const time = performance.now() * 0.001; // 초 단위
+        const starScrollSpeed = this.scrollOffsetX * 0.05; // 패럴랙스
         this.stars.forEach(star => {
             const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
             star.graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3); // 0.7-1.0 범위
             
-            // 별도 천천히 스크롤 (패럴랙스)
-            star.graphic.x -= scrollX * 0.1 * 0.016;
+            // 별 위치 계산 (스크롤에 따라)
+            const baseX = (star.graphic as any).baseX || star.graphic.x;
+            if (!(star.graphic as any).baseX) {
+                (star.graphic as any).baseX = star.graphic.x;
+            }
+            star.graphic.x = baseX - starScrollSpeed;
+            
+            // 화면 밖으로 나가면 반대편에서 재등장
             if (star.graphic.x < -50) {
-                star.graphic.x += GAME_CONFIG.width * 2;
+                (star.graphic as any).baseX += GAME_CONFIG.width + 100;
+            } else if (star.graphic.x > GAME_CONFIG.width + 50) {
+                (star.graphic as any).baseX -= GAME_CONFIG.width + 100;
             }
         });
         
         // 구름 이동 (패럴랙스 - 배경보다 느리게)
+        const cloudScrollSpeed = this.scrollOffsetX * 0.15;
         this.clouds.forEach(cloud => {
-            cloud.x -= scrollX * 0.2 * 0.016;
-            if (cloud.x < -100) {
-                cloud.x += GAME_CONFIG.width * 2;
+            const baseX = (cloud as any).baseX || cloud.x;
+            if (!(cloud as any).baseX) {
+                (cloud as any).baseX = cloud.x;
+            }
+            cloud.x = baseX - cloudScrollSpeed;
+            
+            // 화면 밖으로 나가면 반대편에서 재등장
+            if (cloud.x < -150) {
+                (cloud as any).baseX += GAME_CONFIG.width + 300;
+                cloud.y = Math.random() * GAME_CONFIG.height;
+            } else if (cloud.x > GAME_CONFIG.width + 150) {
+                (cloud as any).baseX -= GAME_CONFIG.width + 300;
                 cloud.y = Math.random() * GAME_CONFIG.height;
             }
         });
