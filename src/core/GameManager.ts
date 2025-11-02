@@ -7,7 +7,19 @@ import { vfxSystem } from '../systems/vfxSystem';
 import { GAME_CONFIG, COLORS } from './config';
 
 interface PlayerGraphics extends PIXI.Graphics { isOnPlatform?: boolean; platformY?: number; }
-interface PlatformGraphics extends PIXI.Graphics { width: number; height: number; landed?: boolean; }
+interface PlatformGraphics extends PIXI.Graphics { 
+    width: number; 
+    height: number; 
+    landed?: boolean;
+    // 이동 플랫폼 속성
+    isMoving?: boolean;
+    moveType?: 'horizontal' | 'vertical'; // 이동 타입
+    moveSpeed?: number;
+    moveRange?: number;
+    moveDirection?: number; // 1 또는 -1
+    initialX?: number; // 수평 이동 시작 위치
+    initialY?: number; // 수직 이동 시작 위치
+}
 
 export class GameManager {
     private app!: PIXI.Application;
@@ -469,11 +481,133 @@ export class GameManager {
         targetPlatform.height = GAME_CONFIG.platformHeight;
         targetPlatform.visible = true;
         targetPlatform.landed = false;
+        targetPlatform.isMoving = false; // 일반 플랫폼
+        targetPlatform.moveType = undefined;
         (targetPlatform as any).inUse = true;
         
         gameActions.addPlatform(targetPlatform);
         animationSystem.platformSpawnAnimation(targetPlatform);
         return targetPlatform;
+    }
+    
+    private createMovingPlatform(x: number, y: number, moveRange: number = 100, moveSpeed: number = 1.5): PlatformGraphics {
+        // 풀에서 사용 가능한 플랫폼 찾기
+        const platform = this.platformPool.find(p => !(p as any).inUse);
+        if (!platform) {
+            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
+            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
+            this.world.addChild(newPlatform);
+            this.platformPool.push(newPlatform);
+        }
+        
+        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
+        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
+        
+        // 이동 플랫폼 시각적 차별화 (파란색)
+        targetPlatform.clear();
+        targetPlatform.beginFill(0x00AAFF); // 파란색
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        targetPlatform.endFill();
+        
+        // 외곽 글로우 효과
+        targetPlatform.lineStyle(2, 0x00DDFF, 0.5);
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        
+        targetPlatform.x = x;
+        targetPlatform.y = y;
+        targetPlatform.width = width;
+        targetPlatform.height = GAME_CONFIG.platformHeight;
+        targetPlatform.visible = true;
+        targetPlatform.landed = false;
+        
+        // 이동 플랫폼 설정 (수평)
+        targetPlatform.isMoving = true;
+        targetPlatform.moveType = 'horizontal';
+        targetPlatform.moveSpeed = moveSpeed;
+        targetPlatform.moveRange = moveRange;
+        targetPlatform.moveDirection = 1; // 오른쪽으로 시작
+        targetPlatform.initialX = x;
+        
+        (targetPlatform as any).inUse = true;
+        
+        gameActions.addPlatform(targetPlatform);
+        animationSystem.platformSpawnAnimation(targetPlatform);
+        return targetPlatform;
+    }
+    
+    private createVerticalMovingPlatform(x: number, y: number, moveRange: number = 100, moveSpeed: number = 1.5): PlatformGraphics {
+        // 풀에서 사용 가능한 플랫폼 찾기
+        const platform = this.platformPool.find(p => !(p as any).inUse);
+        if (!platform) {
+            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
+            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
+            this.world.addChild(newPlatform);
+            this.platformPool.push(newPlatform);
+        }
+        
+        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
+        const width = GAME_CONFIG.platformWidth.min + Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
+        
+        // 수직 이동 플랫폼 시각적 차별화 (녹색)
+        targetPlatform.clear();
+        targetPlatform.beginFill(0x00FF88); // 녹색
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        targetPlatform.endFill();
+        
+        // 외곽 글로우 효과
+        targetPlatform.lineStyle(2, 0x00FFAA, 0.5);
+        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        
+        targetPlatform.x = x;
+        targetPlatform.y = y;
+        targetPlatform.width = width;
+        targetPlatform.height = GAME_CONFIG.platformHeight;
+        targetPlatform.visible = true;
+        targetPlatform.landed = false;
+        
+        // 이동 플랫폼 설정 (수직)
+        targetPlatform.isMoving = true;
+        targetPlatform.moveType = 'vertical';
+        targetPlatform.moveSpeed = moveSpeed;
+        targetPlatform.moveRange = moveRange;
+        targetPlatform.moveDirection = 1; // 아래쪽으로 시작
+        targetPlatform.initialY = y;
+        
+        (targetPlatform as any).inUse = true;
+        
+        gameActions.addPlatform(targetPlatform);
+        animationSystem.platformSpawnAnimation(targetPlatform);
+        return targetPlatform;
+    }
+    
+    private createRandomMovingPlatform(x: number, y: number): PlatformGraphics {
+        // 수평 이동 랜덤 옵션 선택
+        const options = [
+            { range: 80, speed: 1.5 },   // 짧은 범위, 느린 속도
+            { range: 100, speed: 1.8 },  // 짧은 범위, 중간 속도
+            { range: 120, speed: 2.0 },  // 중간 범위, 중간 속도
+            { range: 150, speed: 2.2 },  // 중간 범위, 빠른 속도
+            { range: 180, speed: 1.6 },  // 긴 범위, 느린 속도
+            { range: 200, speed: 2.5 }   // 긴 범위, 빠른 속도
+        ];
+        
+        const randomOption = options[Math.floor(Math.random() * options.length)];
+        return this.createMovingPlatform(x, y, randomOption.range, randomOption.speed);
+    }
+    
+    private createRandomVerticalMovingPlatform(x: number, y: number): PlatformGraphics {
+        // 수직 이동 랜덤 옵션 선택
+        const options = [
+            { range: 100, speed: 1.2 },  // 짧은 범위, 느린 속도
+            { range: 120, speed: 1.4 },  // 짧은 범위, 중간 속도
+            { range: 140, speed: 1.6 },  // 중간 범위, 중간 속도
+            { range: 160, speed: 1.8 },  // 중간 범위, 빠른 속도
+            { range: 180, speed: 1.5 },  // 긴 범위, 느린 속도
+            { range: 200, speed: 2.0 }   // 긴 범위, 빠른 속도
+        ];
+        
+        const randomOption = options[Math.floor(Math.random() * options.length)];
+        return this.createVerticalMovingPlatform(x, y, randomOption.range, randomOption.speed);
     }
 
     private generateInitialPlatforms(): void { 
@@ -526,6 +660,8 @@ export class GameManager {
         targetPlatform.height = GAME_CONFIG.platformHeight;
         targetPlatform.visible = true;
         targetPlatform.landed = false;
+        targetPlatform.isMoving = false; // 일반 플랫폼
+        targetPlatform.moveType = undefined;
         (targetPlatform as any).inUse = true;
         
         gameActions.addPlatform(targetPlatform);
@@ -624,8 +760,17 @@ export class GameManager {
         // 플랫폼 풀링: 삭제하지 않고 비활성화
         const currentPlatforms = platforms.get();
         currentPlatforms.forEach(p => {
-            p.visible = false;
-            (p as any).inUse = false;
+            const pg = p as PlatformGraphics;
+            pg.visible = false;
+            (pg as any).inUse = false;
+            // 이동 플랫폼 속성 초기화
+            pg.isMoving = false;
+            pg.moveType = undefined;
+            pg.moveSpeed = undefined;
+            pg.moveRange = undefined;
+            pg.moveDirection = undefined;
+            pg.initialX = undefined;
+            pg.initialY = undefined;
         });
         gameActions.clearPlatforms();
         this.isSwingSoundPlaying = false;
@@ -757,7 +902,9 @@ export class GameManager {
                 this.targetCameraZoom = this.baseCameraZoom;
             }
             this.updateCameraZoom();
-            this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
+            this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); 
+            this.updateMovingPlatforms(); // 이동 플랫폼 업데이트
+            this.managePlatforms(); this.drawRope();
             this.updateScore(); // 매 프레임마다 거리 업데이트
             this.updateCombo(); // 콤보 UI 업데이트
             this.updateComboVFX(); // 콤보 VFX 효과
@@ -1106,6 +1253,44 @@ export class GameManager {
         }
     }
 
+    private updateMovingPlatforms(): void {
+        const currentPlatforms = platforms.get();
+        
+        currentPlatforms.forEach(platform => {
+            const pg = platform as PlatformGraphics;
+            
+            if (!pg.isMoving || !pg.moveSpeed || !pg.moveRange || pg.moveDirection === undefined) {
+                return;
+            }
+            
+            // 수평 이동 플랫폼
+            if (pg.moveType === 'horizontal' && pg.initialX !== undefined) {
+                const currentDistance = pg.x - pg.initialX;
+                
+                if (currentDistance >= pg.moveRange) {
+                    pg.moveDirection = -1; // 왼쪽으로
+                } else if (currentDistance <= 0) {
+                    pg.moveDirection = 1; // 오른쪽으로
+                }
+                
+                pg.x += pg.moveSpeed * pg.moveDirection;
+            }
+            
+            // 수직 이동 플랫폼
+            if (pg.moveType === 'vertical' && pg.initialY !== undefined) {
+                const currentDistance = pg.y - pg.initialY;
+                
+                if (currentDistance >= pg.moveRange) {
+                    pg.moveDirection = -1; // 위로
+                } else if (currentDistance <= 0) {
+                    pg.moveDirection = 1; // 아래로
+                }
+                
+                pg.y += pg.moveSpeed * pg.moveDirection;
+            }
+        });
+    }
+    
     private managePlatforms(): void {
         const currentPlatforms = platforms.get();
         
@@ -1113,8 +1298,17 @@ export class GameManager {
         const filteredPlatforms = currentPlatforms.filter(platform => { 
             if (platform.x + (platform as PlatformGraphics).width < -200) { 
                 // 삭제하지 않고 비활성화만
-                platform.visible = false;
-                (platform as any).inUse = false;
+                const pg = platform as PlatformGraphics;
+                pg.visible = false;
+                (pg as any).inUse = false;
+                // 이동 플랫폼 속성 초기화
+                pg.isMoving = false;
+                pg.moveType = undefined;
+                pg.moveSpeed = undefined;
+                pg.moveRange = undefined;
+                pg.moveDirection = undefined;
+                pg.initialX = undefined;
+                pg.initialY = undefined;
                 return false; 
             } 
             return true; 
@@ -1137,10 +1331,24 @@ export class GameManager {
             const gap = 180 + Math.random() * 70;
             const x = rightmostPlatformEnd + gap;
             
-            // 상단과 하단에 모두 플랫폼 생성
-            const yTop = 80 + Math.random() * 200;
-            const platformTop = this.createPlatform(x, yTop);
+            // 거리에 따른 특수 플랫폼 생성 확률
+            const distance = this.scrollOffsetX;
+            const shouldSpawnHorizontal = distance >= 5000 && Math.random() < 0.15; // 50m부터 15%
+            const shouldSpawnVertical = distance >= 10000 && Math.random() < 0.15; // 100m부터 15%
             
+            // 상단 플랫폼
+            const yTop = 80 + Math.random() * 200;
+            let platformTop: PlatformGraphics;
+            
+            if (shouldSpawnVertical) {
+                platformTop = this.createRandomVerticalMovingPlatform(x, yTop);
+            } else if (shouldSpawnHorizontal) {
+                platformTop = this.createRandomMovingPlatform(x, yTop);
+            } else {
+                platformTop = this.createPlatform(x, yTop);
+            }
+            
+            // 하단 플랫폼
             const yBottom = 350 + Math.random() * 170;
             const platformBottom = this.createPlatform(x + 20, yBottom);
         }
