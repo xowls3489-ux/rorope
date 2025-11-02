@@ -70,12 +70,13 @@ export class GameManager {
     private updateGameOverPosition(): void {
         if (this.gameOverText) {
             this.gameOverText.x = GAME_CONFIG.width / 2;
-            // 하단에서부터 고정 거리로 배치 (더 안정적)
-            // 모바일: 하단에서 120px 위
-            // 데스크톱: 하단에서 200px 위 (또는 중앙)
+            // 하단에서부터 고정 거리로 배치
+            // 모바일: 하단에서 200px 위 (더 아래로)
+            // 데스크톱: 중앙
             const isMobileSize = GAME_CONFIG.height < 800;
-            const offsetFromBottom = isMobileSize ? 120 : 200;
-            const yPosition = GAME_CONFIG.height - offsetFromBottom;
+            const yPosition = isMobileSize 
+                ? GAME_CONFIG.height - 200 
+                : GAME_CONFIG.height / 2;
             this.gameOverText.y = yPosition;
         }
     }
