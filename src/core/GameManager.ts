@@ -668,27 +668,30 @@ export class GameManager {
             tile.x = baseX - (scrollX % (this.bgTileWidth * 2)); 
         }
         
-        // 별 깜빡임 애니메이션
+        // 별 깜빡임 애니메이션 (최적화)
         const time = performance.now() * 0.001; // 초 단위
-        const starScrollSpeed = this.scrollOffsetX * 0.05; // 패럴랙스
-        this.stars.forEach(star => {
-            const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
-            star.graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3); // 0.7-1.0 범위
+        
+        for (let i = 0; i < this.stars.length; i++) {
+            const star = this.stars[i];
             
-            // 별 위치 계산 (스크롤에 따라)
+            // 깜빡임 (매 프레임)
+            const twinkle = Math.sin(time * star.twinkleSpeed + star.twinklePhase);
+            star.graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3);
+            
+            // 별 위치 계산 (배경과 같은 속도로 스크롤)
             const baseX = (star.graphic as any).baseX || star.graphic.x;
             if (!(star.graphic as any).baseX) {
                 (star.graphic as any).baseX = star.graphic.x;
             }
-            star.graphic.x = baseX - starScrollSpeed;
+            star.graphic.x = baseX - scrollX;
             
             // 화면 밖으로 나가면 반대편에서 재등장
             if (star.graphic.x < -50) {
-                (star.graphic as any).baseX += GAME_CONFIG.width + 100;
+                (star.graphic as any).baseX += this.bgTileWidth * 2;
             } else if (star.graphic.x > GAME_CONFIG.width + 50) {
-                (star.graphic as any).baseX -= GAME_CONFIG.width + 100;
+                (star.graphic as any).baseX -= this.bgTileWidth * 2;
             }
-        });
+        }
     }
 
     private updatePullToAnchor(): void {
