@@ -32,24 +32,6 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync android
     
-    - name: Auto increment version
-      run: |
-        cd android/app
-        # versionCode 자동 증가
-        CURRENT_VERSION_CODE=$(grep 'versionCode' build.gradle | awk '{print $2}')
-        NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
-        sed -i "s/versionCode $CURRENT_VERSION_CODE/versionCode $NEW_VERSION_CODE/" build.gradle
-        
-        # versionName 자동 증가 (마이너 버전)
-        CURRENT_VERSION_NAME=$(grep 'versionName' build.gradle | awk -F'"' '{print $2}')
-        MAJOR=$(echo $CURRENT_VERSION_NAME | cut -d'.' -f1)
-        MINOR=$(echo $CURRENT_VERSION_NAME | cut -d'.' -f2)
-        NEW_MINOR=$((MINOR + 1))
-        NEW_VERSION_NAME="$MAJOR.$NEW_MINOR"
-        sed -i "s/versionName \"$CURRENT_VERSION_NAME\"/versionName \"$NEW_VERSION_NAME\"/" build.gradle
-        
-        echo "✅ Version updated: $CURRENT_VERSION_CODE → $NEW_VERSION_CODE ($CURRENT_VERSION_NAME → $NEW_VERSION_NAME)"
-    
     - name: Decode and setup keystore
       env:
         KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
