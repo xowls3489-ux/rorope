@@ -43,7 +43,15 @@ export class GameManager {
     constructor() { this.init(); }
 
     private async init(): Promise<void> {
-        this.app = new PIXI.Application({ width: GAME_CONFIG.width, height: GAME_CONFIG.height, backgroundColor: COLORS.background, resizeTo: window, antialias: true });
+        this.app = new PIXI.Application({ 
+            width: GAME_CONFIG.width, 
+            height: GAME_CONFIG.height, 
+            backgroundColor: COLORS.background, 
+            resizeTo: window, 
+            antialias: true,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true
+        });
         const gameRoot = document.getElementById('game-root');
         (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
         this.stage = this.app.stage;
@@ -54,7 +62,33 @@ export class GameManager {
         this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
         this.fxLayer = vfxSystem.initialize(this.stage); // FX 레이어 초기화 및 추가
         this.initBackground(); this.initGameObjects(); this.initInput();
+        this.setupResizeHandler(); // 화면 크기 변경 대응
         this.app.ticker.add(this.update.bind(this)); this.app.ticker.maxFPS = 60;
+    }
+
+    private setupResizeHandler(): void {
+        const handleResize = () => {
+            // 배경 타일 크기 조정
+            this.bgTiles.forEach(tile => {
+                tile.clear();
+                tile.beginFill(COLORS.background);
+                tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height);
+                tile.endFill();
+            });
+            
+            // UI 요소 위치 재조정
+            if (this.scoreText) {
+                this.scoreText.x = GAME_CONFIG.width / 2;
+                this.scoreText.y = 30;
+            }
+            if (this.gameOverText) {
+                this.gameOverText.x = GAME_CONFIG.width / 2;
+                this.gameOverText.y = GAME_CONFIG.height / 2;
+            }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
     }
 
     private initBackground(): void { for (let i = 0; i < 2; i++) { const tile = new PIXI.Graphics(); tile.beginFill(COLORS.background); tile.drawRect(0, 0, this.bgTileWidth, GAME_CONFIG.height); tile.endFill(); tile.x = i * this.bgTileWidth; this.bgTiles.push(tile); this.bgLayer.addChild(tile); } }

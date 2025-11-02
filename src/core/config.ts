@@ -1,6 +1,13 @@
+// 화면 크기를 동적으로 계산
+const getGameDimensions = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    return { width, height };
+};
+
 export const GAME_CONFIG = {
-    width: 800,
-    height: 600,
+    get width() { return getGameDimensions().width; },
+    get height() { return getGameDimensions().height; },
     gravity: 15,
     ropeLength: 180,
     damping: 0.995,
@@ -21,7 +28,7 @@ export const GAME_CONFIG = {
     grappleMomentumBoost: 1.2,
     grappleCameraZoom: 0.95,
     // 스크롤 방식 설정
-    playerFixedX: 280, // 플레이어 고정 X 위치
+    get playerFixedX() { return Math.min(280, this.width * 0.35); }, // 화면 크기에 비례
     baseScrollSpeed: 5, // 기본 스크롤 속도
 };
 
