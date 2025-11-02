@@ -30,6 +30,11 @@ export const GAME_CONFIG = {
     // 스크롤 방식 설정
     get playerFixedX() { return Math.min(280, this.width * 0.35); }, // 화면 크기에 비례
     baseScrollSpeed: 5, // 기본 스크롤 속도
+    // 슬로우 모션 설정
+    slowMotionScale: 0.4, // 슬로우 모션 시 게임 속도 (0.4 = 40% 속도)
+    slowMotionDuration: 2000, // 슬로우 모션 지속 시간 (밀리초)
+    slowMotionComboThreshold: 10, // 슬로우 모션 활성화 콤보 수
+    slowMotionDangerDistance: 100, // 화면 밖으로 이 거리만큼 가까워지면 위험
 };
 
 export const COLORS = {

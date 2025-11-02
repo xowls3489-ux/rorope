@@ -24,6 +24,7 @@ export class VFXSystem {
     private particles: Particle[] = [];
     private readonly particlePoolSize = 30; // 최적화: 50 -> 30으로 감소
     private stageAlpha: number = 1.0;
+    private slowMotionOverlay?: PIXI.Graphics;
 
     /**
      * FX 레이어 초기화
@@ -388,6 +389,149 @@ export class VFXSystem {
     }
 
     /**
+     * 콤보 증가 시 플레이어 주변 파티클 버스트
+     */
+    spawnComboParticleBurst(x: number, y: number, combo: number): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
+
+        // 콤보에 따른 색상 결정
+        let color = 0xFFFFFF;
+        if (combo >= 7) {
+            color = 0xFF00FF; // 보라/핑크
+        } else if (combo >= 4) {
+            color = 0xFF4400; // 빨강/주황
+        } else if (combo >= 2) {
+            color = 0xFFDD00; // 노랑
+        } else if (combo >= 1) {
+            color = 0xFFFF88; // 밝은 노랑
+        }
+
+        // 콤보가 높을수록 더 많은 파티클
+        const count = Math.min(12, 6 + combo);
+        
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+            const speed = 4 + Math.random() * 4 + combo * 0.5;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            const size = 3 + Math.random() * 2 + combo * 0.3;
+            this.spawnParticle(x, y, vx, vy, color, size);
+        }
+    }
+
+    /**
+     * 콤보 충격파 효과 (고콤보 시)
+     */
+    spawnComboShockwave(x: number, y: number, combo: number): void {
+        if (!this.fxLayer || combo < 3) return;
+
+        // 콤보에 따른 색상
+        let color = 0xFFDD00;
+        if (combo >= 7) {
+            color = 0xFF00FF;
+        } else if (combo >= 4) {
+            color = 0xFF4400;
+        }
+
+        const shockwave = new PIXI.Graphics();
+        shockwave.lineStyle(3 + combo * 0.5, color, 0.8);
+        shockwave.drawCircle(0, 0, 15);
+        shockwave.x = x;
+        shockwave.y = y;
+        shockwave.alpha = 1.0;
+        this.fxLayer.addChild(shockwave);
+
+        let frames = 0;
+        const maxFrames = 15;
+        const shockwaveTick = () => {
+            frames++;
+            if (!shockwave.parent) return;
+            
+            const progress = frames / maxFrames;
+            const scale = 1 + progress * (4 + combo * 0.5);
+            shockwave.scale.set(scale);
+            shockwave.alpha = Math.max(0, 1.0 - progress);
+            shockwave.clear();
+            shockwave.lineStyle(3 + combo * 0.5, color, 0.8 * (1 - progress));
+            shockwave.drawCircle(0, 0, 15);
+
+            if (frames >= maxFrames) {
+                if (shockwave.parent) {
+                    this.fxLayer.removeChild(shockwave);
+                }
+                shockwave.destroy();
+            }
+        };
+
+        (shockwave as any).vfxShockwave = shockwaveTick;
+    }
+
+    /**
+     * 플레이어 발쪽에서 위로 떠오르는 파티클 (지속 효과)
+     */
+    spawnComboRisingParticles(x: number, y: number, combo: number): void {
+        if (!this.fxLayer || !this.particles || this.particles.length === 0 || combo < 2) return;
+
+        // 콤보에 따른 색상
+        let color = 0xFFDD00;
+        if (combo >= 7) {
+            color = 0xFF00FF;
+        } else if (combo >= 4) {
+            color = 0xFF4400;
+        }
+
+        // 콤보가 높을수록 더 많은 파티클 (2-4개)
+        const particleCount = Math.min(4, 2 + Math.floor(combo / 3));
+        
+        for (let i = 0; i < particleCount; i++) {
+            // 플레이어 발 아래쪽에서 시작 (y + 10 ~ 15)
+            const startY = y + 12 + Math.random() * 3;
+            const startX = x + (Math.random() - 0.5) * 20; // 좌우로 약간 분산
+            
+            // 위로 떠오르는 속도
+            const vx = (Math.random() - 0.5) * 1; // 좌우로 약간 흔들림
+            const vy = -2 - Math.random() * 2; // 위로 -2 ~ -4 속도
+            
+            const size = 2 + Math.random() * 1.5 + combo * 0.15;
+            this.spawnParticle(startX, startY, vx, vy, color, size);
+        }
+    }
+
+    /**
+     * 슬로우 모션 오버레이 활성화
+     */
+    showSlowMotionOverlay(): void {
+        if (!this.fxLayer) return;
+
+        // 오버레이가 없거나 파괴되었으면 새로 생성
+        if (!this.slowMotionOverlay || !this.slowMotionOverlay.parent) {
+            this.slowMotionOverlay = new PIXI.Graphics();
+            this.fxLayer.addChild(this.slowMotionOverlay);
+        }
+
+        // 안전 체크
+        if (!this.slowMotionOverlay) return;
+
+        // 화면 전체를 덮는 반투명 파란색 오버레이
+        this.slowMotionOverlay.clear();
+        this.slowMotionOverlay.beginFill(0x00AAFF, 0.15); // 파란색, 15% 투명도
+        this.slowMotionOverlay.drawRect(0, 0, 10000, 10000); // 충분히 큰 사각형
+        this.slowMotionOverlay.endFill();
+        this.slowMotionOverlay.x = -5000;
+        this.slowMotionOverlay.y = -5000;
+        this.slowMotionOverlay.visible = true;
+    }
+
+    /**
+     * 슬로우 모션 오버레이 비활성화
+     */
+    hideSlowMotionOverlay(): void {
+        if (this.slowMotionOverlay) {
+            this.slowMotionOverlay.visible = false;
+        }
+    }
+
+    /**
      * 매 프레임 업데이트: 파티클 이동 및 페이드
      */
     update(): void {
@@ -436,6 +580,9 @@ export class VFXSystem {
                 if ((child as any).vfxFlash) {
                     (child as any).vfxFlash();
                 }
+                if ((child as any).vfxShockwave) {
+                    (child as any).vfxShockwave();
+                }
             });
         }
     }
@@ -454,14 +601,20 @@ export class VFXSystem {
             }
         });
 
-        // fxLayer의 모든 자식 제거 (선 효과 등, 파티클은 유지)
+        // fxLayer의 모든 자식 제거 (선 효과 등, 파티클과 오버레이는 유지)
         const particleGraphics = this.particles.map(p => p.graphics);
         this.fxLayer.children.slice().forEach(child => {
-            if (!particleGraphics.includes(child as PIXI.Graphics)) {
+            // 파티클이나 슬로우 모션 오버레이가 아니면 제거
+            if (!particleGraphics.includes(child as PIXI.Graphics) && child !== this.slowMotionOverlay) {
                 this.fxLayer.removeChild(child);
                 child.destroy();
             }
         });
+
+        // 슬로우 모션 오버레이 숨기기
+        if (this.slowMotionOverlay) {
+            this.slowMotionOverlay.visible = false;
+        }
 
         this.fxLayer.alpha = 1.0;
     }

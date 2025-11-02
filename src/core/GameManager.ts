@@ -18,6 +18,7 @@ export class GameManager {
     private player!: PlayerGraphics;
     private rope!: PIXI.Graphics;
     private scoreText!: PIXI.Text;
+    private comboText!: PIXI.Text;
     private gameOverText!: PIXI.Text;
     private isSwingSoundPlaying: boolean = false;
     private bgTiles: PIXI.Graphics[] = [];
@@ -34,6 +35,8 @@ export class GameManager {
     private baseCameraZoom: number = 0.85; // 기본 줌 레벨 (모바일 대응)
     private trailParticleCounter: number = 0;
     private frameCounter: number = 0; // 최적화용 프레임 카운터
+    private comboVfxCounter: number = 0; // 콤보 VFX 생성 카운터
+    private slowMotionEndTime: number = 0; // 슬로우 모션 종료 시간
     // 오브젝트 풀링
     private platformPool: PlatformGraphics[] = [];
     private readonly platformPoolSize: number = 30;
@@ -113,8 +116,12 @@ export class GameManager {
             
             // UI 요소 위치 재조정
             if (this.scoreText) {
-                this.scoreText.x = GAME_CONFIG.width / 2;
-                this.scoreText.y = 30;
+                this.scoreText.x = 20;
+                this.scoreText.y = 20;
+            }
+            if (this.comboText) {
+                this.comboText.x = GAME_CONFIG.width / 2;
+                this.comboText.y = 70;
             }
             this.updateGameOverPosition();
         };
@@ -289,8 +296,13 @@ export class GameManager {
         this.player.x = -100;
         this.player.y = -100;
         this.rope = new PIXI.Graphics(); this.rope.visible = true; this.world.addChild(this.rope);
-        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
-        this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
+        this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'left' });
+        this.scoreText.x = 20; this.scoreText.y = 20; this.scoreText.anchor.set(0, 0); this.stage.addChild(this.scoreText);
+        
+        this.comboText = new PIXI.Text('', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: 0xFFFFFF, align: 'center', fontWeight: 'bold' });
+        this.comboText.x = GAME_CONFIG.width / 2; this.comboText.y = 70; this.comboText.anchor.set(0.5, 0.5); 
+        this.comboText.visible = false;
+        this.stage.addChild(this.comboText);
         this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
         this.gameOverText.anchor.set(0.5, 0.5); 
         this.updateGameOverPosition(); // 초기 위치 설정
@@ -626,26 +638,129 @@ export class GameManager {
         this.scoreText.text = `${meters} m`;
         animationSystem.scoreAnimation(this.scoreText);
     }
+    
+    private updateCombo(): void {
+        const game = gameState.get();
+        const combo = game.combo || 0;
+        
+        if (combo > 0) {
+            this.comboText.text = `${combo} COMBO`;
+            this.comboText.visible = true;
+            
+            // 콤보에 따른 색상 변화
+            if (combo >= 7) {
+                this.comboText.style.fill = 0xFF00FF; // 보라/핑크
+            } else if (combo >= 4) {
+                this.comboText.style.fill = 0xFF4400; // 빨강/주황
+            } else if (combo >= 2) {
+                this.comboText.style.fill = 0xFFDD00; // 노랑
+            } else {
+                this.comboText.style.fill = 0xFFFF88; // 밝은 노랑
+            }
+            
+            // 콤보가 높을수록 크기 증가 (애니메이션 효과)
+            const baseSize = 28;
+            const sizeBoost = Math.min(12, combo * 1.5);
+            this.comboText.style.fontSize = baseSize + sizeBoost;
+        } else {
+            this.comboText.visible = false;
+        }
+    }
+    
+    private updateComboVFX(): void {
+        const game = gameState.get();
+        const combo = game.combo || 0;
+        
+        // 콤보 2 이상일 때 떠오르는 파티클 효과 (6프레임마다)
+        if (combo >= 2) {
+            this.comboVfxCounter++;
+            if (this.comboVfxCounter >= 6) {
+                this.comboVfxCounter = 0;
+                const playerPos = playerState.get();
+                vfxSystem.spawnComboRisingParticles(playerPos.x, playerPos.y, combo);
+            }
+        } else {
+            this.comboVfxCounter = 0;
+        }
+    }
+    
+    private updateSlowMotion(): void {
+        const game = gameState.get();
+        const combo = game.combo || 0;
+        const playerPos = playerState.get();
+        
+        // 슬로우 모션 시간 종료 체크
+        if (game.isSlowMotion && Date.now() > this.slowMotionEndTime) {
+            gameActions.deactivateSlowMotion();
+            vfxSystem.hideSlowMotionOverlay(); // 오버레이 숨기기
+            console.log('[슬로우 모션] 종료');
+        }
+        
+        // 10콤보 마일스톤 달성 시 슬로우 모션 활성화
+        if (combo >= GAME_CONFIG.slowMotionComboThreshold && 
+            Math.floor(combo / GAME_CONFIG.slowMotionComboThreshold) > Math.floor(game.lastComboMilestone / GAME_CONFIG.slowMotionComboThreshold)) {
+            
+            this.activateSlowMotionEffect();
+            gameActions.updateComboMilestone(combo);
+            console.log(`[슬로우 모션] ${combo} 콤보 달성!`);
+        }
+        
+        // 위험 감지: 10콤보 이상일 때 화면 밖으로 나갈 위험이 있으면 슬로우 모션
+        if (!game.isSlowMotion && combo >= GAME_CONFIG.slowMotionComboThreshold) {
+            const screenX = playerPos.x + this.world.x;
+            const screenY = playerPos.y + this.world.y;
+            
+            const dangerLeft = screenX < GAME_CONFIG.slowMotionDangerDistance;
+            const dangerRight = screenX > GAME_CONFIG.width - GAME_CONFIG.slowMotionDangerDistance;
+            const dangerTop = screenY < GAME_CONFIG.slowMotionDangerDistance;
+            const dangerBottom = screenY > GAME_CONFIG.height - GAME_CONFIG.slowMotionDangerDistance;
+            
+            if (dangerLeft || dangerRight || dangerTop || dangerBottom) {
+                this.activateSlowMotionEffect();
+                console.log('[슬로우 모션] 위험 감지! 활성화');
+            }
+        }
+    }
+    
+    private activateSlowMotionEffect(): void {
+        gameActions.activateSlowMotion();
+        this.slowMotionEndTime = Date.now() + GAME_CONFIG.slowMotionDuration;
+        
+        // VFX: 슬로우 모션 시작 효과
+        const playerPos = playerState.get();
+        vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, 10); // 강한 충격파
+        vfxSystem.showSlowMotionOverlay(); // 화면 오버레이 표시
+    }
 
     private update(): void {
         const currentState = gameState.get(); if (!currentState.isPlaying) return;
+        
+        // 슬로우 모션 체크 및 업데이트
+        this.updateSlowMotion();
+        
+        // 슬로우 모션 적용: dt 계산
+        const timeScale = currentState.isSlowMotion ? GAME_CONFIG.slowMotionScale : 1.0;
+        const dt = 0.016 * timeScale; // 기본 60fps에서 슬로우 모션 적용
+        
         try {
             const rope = ropeState.get(); 
             if (rope.isFlying) { 
-                ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, 0.016); 
-                this.updateFreeFallPhysics(); 
+                ropeSystem.updateFlight(GAME_CONFIG.platformHeight, 700, dt); 
+                this.updateFreeFallPhysics(dt); 
             } else if (rope.isPulling) { 
-                this.updatePullToAnchor(); 
+                this.updatePullToAnchor(dt); 
                 // 풀링 중 카메라 줌인 (기본 줌에서 약간만)
                 this.targetCameraZoom = this.baseCameraZoom * GAME_CONFIG.grappleCameraZoom;
             } else { 
-                this.updateFreeFallPhysics(); 
+                this.updateFreeFallPhysics(dt); 
                 // 풀링 중이 아니면 카메라 줌 복구
                 this.targetCameraZoom = this.baseCameraZoom;
             }
             this.updateCameraZoom();
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
             this.updateScore(); // 매 프레임마다 거리 업데이트
+            this.updateCombo(); // 콤보 UI 업데이트
+            this.updateComboVFX(); // 콤보 VFX 효과
             vfxSystem.update(); // VFX 시스템 업데이트 (파티클 이동, fxLayer 페이드)
         } catch (e) { console.error('게임 업데이트 중 오류 발생:', e); gameActions.pauseGame(); }
         this.checkGameOver();
@@ -829,11 +944,10 @@ export class GameManager {
         }
     }
 
-    private updatePullToAnchor(): void {
+    private updatePullToAnchor(dt: number = 0.016): void {
         const ropePos = ropeState.get();
         const playerPos = playerState.get();
         const game = gameState.get();
-        const dt = 0.016;
         
         // 콤보에 따른 풀 속도 증가
         const combo = game.combo || 0;
@@ -914,22 +1028,9 @@ export class GameManager {
         this.updateFreeFallPhysics();
     }
 
-    private updateFreeFallPhysics(): void {
+    private updateFreeFallPhysics(dt: number = 0.016): void {
         const playerPos = playerState.get();
         const rope = ropeState.get();
-        
-        // 공중에서 로프가 활성화되지 않은 상태가 일정 시간 이상 지속되면 콤보 리셋
-        if (!this.player?.isOnPlatform && !rope.isActive && !rope.isFlying && !rope.isPulling) {
-            // 공중에서 자유낙하 중이면서 플랫폼에서 떨어진 경우
-            // 속도가 너무 빨라지거나 너무 오래 떨어지면 콤보 리셋
-            if (playerPos.velocityY > 30) {
-                // 일정 속도 이상 낙하 중이면 콤보 리셋 (실패로 간주)
-                const game = gameState.get();
-                if (game.combo > 0) {
-                    gameActions.resetCombo();
-                }
-            }
-        }
         
         if (this.player && this.player.isOnPlatform && this.player.platformY !== undefined) {
             const currentPlatforms = platforms.get();
@@ -950,7 +1051,7 @@ export class GameManager {
                 this.player.platformY = undefined; 
             }
         }
-        const gravity = GAME_CONFIG.gravity * 0.016; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); 
+        const gravity = GAME_CONFIG.gravity * dt; const dragX = 0.985; let newVelocityY = playerPos.velocityY + gravity; let newVelocityX = playerPos.velocityX * dragX; newVelocityX = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, newVelocityX)); newVelocityY = Math.max(-this.maxSpeedY, Math.min(this.maxSpeedY, newVelocityY)); const newX = playerPos.x + newVelocityX; const newY = playerPos.y + newVelocityY; gameActions.updatePlayerPosition(newX, newY); gameActions.updatePlayerVelocity(newVelocityX, newVelocityY); animationSystem.stopSwingAnimation(this.player); 
         // 자유낙하 착지 비활성화 (로프로만 착지 가능)
         // this.checkPlatformLanding();
     }
@@ -990,9 +1091,6 @@ export class GameManager {
                 
                 platformCast.landed = true;
                 this.landingGraceFrames = 12;
-                
-                // 콤보 증가 (자유낙하 착지 시에도 콤보 유지)
-                gameActions.addCombo();
                 
                 // 점수는 매 프레임마다 거리로 자동 업데이트됨
                 animationSystem.landingAnimation(this.player);

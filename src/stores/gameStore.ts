@@ -10,6 +10,8 @@ export interface GameState {
   lastPlatformX: number;
   gameOver: boolean;
   combo: number; // 콤보 카운터
+  isSlowMotion: boolean; // 슬로우 모션 활성화 여부
+  lastComboMilestone: number; // 마지막 슬로우 모션 발동 콤보
 }
 
 // 플레이어 상태 인터페이스
@@ -49,7 +51,9 @@ export const gameState = map<GameState>({
   cameraX: 0,
   lastPlatformX: 0,
   gameOver: false,
-  combo: 0
+  combo: 0,
+  isSlowMotion: false,
+  lastComboMilestone: 0
 });
 
 // 플레이어 상태 스토어
@@ -92,6 +96,8 @@ export const gameActions = {
     gameState.setKey('lastPlatformX', 0);
     gameState.setKey('gameOver', false);
     gameState.setKey('combo', 0);
+    gameState.setKey('isSlowMotion', false);
+    gameState.setKey('lastComboMilestone', 0);
     
     // 플레이어 위치는 플랫폼 생성 후 GameManager에서 설정
     // 여기서는 기본값만 설정 (실제 위치는 나중에 업데이트됨)
@@ -217,5 +223,17 @@ export const gameActions = {
 
   resetCombo: () => {
     gameState.setKey('combo', 0);
+  },
+
+  activateSlowMotion: () => {
+    gameState.setKey('isSlowMotion', true);
+  },
+
+  deactivateSlowMotion: () => {
+    gameState.setKey('isSlowMotion', false);
+  },
+
+  updateComboMilestone: (milestone: number) => {
+    gameState.setKey('lastComboMilestone', milestone);
   }
 };
