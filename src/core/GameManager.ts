@@ -26,8 +26,9 @@ export class GameManager {
     private landingGraceFrames: number = 0;
     private readonly maxSpeedX: number = 18;
     private readonly maxSpeedY: number = 80;
-    private cameraZoom: number = 1.0;
-    private targetCameraZoom: number = 1.0;
+    private cameraZoom: number = 0.85;
+    private targetCameraZoom: number = 0.85;
+    private baseCameraZoom: number = 0.85; // 기본 줌 레벨 (모바일 대응)
     private trailParticleCounter: number = 0;
     // 스크롤 방식 변수
     private scrollOffsetX: number = 0; // 누적 스크롤 거리 (플레이어가 "이동한" 거리)
@@ -66,6 +67,13 @@ export class GameManager {
         this.app.ticker.add(this.update.bind(this)); this.app.ticker.maxFPS = 60;
     }
 
+    private updateGameOverPosition(): void {
+        if (this.gameOverText) {
+            this.gameOverText.x = GAME_CONFIG.width / 2;
+            this.gameOverText.y = GAME_CONFIG.height / 2;
+        }
+    }
+
     private setupResizeHandler(): void {
         const handleResize = () => {
             // 배경 타일 크기 조정
@@ -81,10 +89,7 @@ export class GameManager {
                 this.scoreText.x = GAME_CONFIG.width / 2;
                 this.scoreText.y = 30;
             }
-            if (this.gameOverText) {
-                this.gameOverText.x = GAME_CONFIG.width / 2;
-                this.gameOverText.y = GAME_CONFIG.height / 2;
-            }
+            this.updateGameOverPosition();
         };
         
         window.addEventListener('resize', handleResize);
@@ -103,7 +108,10 @@ export class GameManager {
         this.scoreText = new PIXI.Text('0 m', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 20, fill: COLORS.ui, align: 'center' });
         this.scoreText.x = GAME_CONFIG.width / 2; this.scoreText.y = 30; this.scoreText.anchor.set(0.5, 0.5); this.stage.addChild(this.scoreText);
         this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', { fontFamily: 'Pretendard, Inter, Roboto Mono, monospace', fontSize: 28, fill: COLORS.ui, align: 'center' });
-        this.gameOverText.x = GAME_CONFIG.width / 2; this.gameOverText.y = GAME_CONFIG.height / 2; this.gameOverText.anchor.set(0.5, 0.5); this.gameOverText.visible = false; this.stage.addChild(this.gameOverText);
+        this.gameOverText.anchor.set(0.5, 0.5); 
+        this.updateGameOverPosition(); // 초기 위치 설정
+        this.gameOverText.visible = false; 
+        this.stage.addChild(this.gameOverText);
     }
 
     private initInput(): void {
@@ -213,7 +221,7 @@ export class GameManager {
         ropeState.setKey('isPulling', false);
         
         // 카메라 줌 복구
-        this.targetCameraZoom = 1.0;
+        this.targetCameraZoom = this.baseCameraZoom;
         
         animationSystem.ropeReleaseAnimation(this.player, this.rope);
         soundSystem.play('ropeRelease');
@@ -338,14 +346,14 @@ export class GameManager {
         this.world.y = 0;
         
         // 카메라 줌 초기화
-        this.cameraZoom = 1.0;
-        this.targetCameraZoom = 1.0;
-        this.world.scale.set(1.0);
+        this.cameraZoom = this.baseCameraZoom;
+        this.targetCameraZoom = this.baseCameraZoom;
+        this.world.scale.set(this.baseCameraZoom);
         
         if (this.fxLayer) {
             this.fxLayer.x = 0;
             this.fxLayer.y = 0;
-            this.fxLayer.scale.set(1.0);
+            this.fxLayer.scale.set(this.baseCameraZoom);
         }
         
         // hitArea 초기화
@@ -376,12 +384,12 @@ export class GameManager {
                 this.updateFreeFallPhysics(); 
             } else if (rope.isPulling) { 
                 this.updatePullToAnchor(); 
-                // 풀링 중 카메라 줌인
-                this.targetCameraZoom = GAME_CONFIG.grappleCameraZoom;
+                // 풀링 중 카메라 줌인 (기본 줌에서 약간만)
+                this.targetCameraZoom = this.baseCameraZoom * GAME_CONFIG.grappleCameraZoom;
             } else { 
                 this.updateFreeFallPhysics(); 
                 // 풀링 중이 아니면 카메라 줌 복구
-                this.targetCameraZoom = 1.0;
+                this.targetCameraZoom = this.baseCameraZoom;
             }
             this.updateCameraZoom();
             this.updatePlayerGraphics(); this.updateCamera(); this.updateBackground(); this.managePlatforms(); this.drawRope();
@@ -534,7 +542,7 @@ export class GameManager {
             ropeState.setKey('isPulling', false);
             
             // 카메라 줌 복구
-            this.targetCameraZoom = 1.0;
+            this.targetCameraZoom = this.baseCameraZoom;
             
             // 현재 속도를 안전하게 제한
             const safeVx = Math.max(-15, Math.min(15, playerPos.velocityX));
