@@ -26,8 +26,6 @@ export class GameManager {
     private landingGraceFrames: number = 0;
     // 배경 요소들
     private stars: Array<{graphic: PIXI.Graphics, baseAlpha: number, twinkleSpeed: number, twinklePhase: number}> = [];
-    private clouds: PIXI.Graphics[] = [];
-    private shootingStars: Array<{graphic: PIXI.Graphics, x: number, y: number, speed: number, respawnTimer: number}> = [];
     private readonly maxSpeedX: number = 18;
     private readonly maxSpeedY: number = 80;
     private cameraZoom: number = 0.85;
@@ -136,49 +134,6 @@ export class GameManager {
                 baseAlpha: baseAlpha,
                 twinkleSpeed: 0.5 + Math.random() * 2, // 깜빡이는 속도
                 twinklePhase: Math.random() * Math.PI * 2 // 초기 위상
-            });
-        }
-        
-        // 구름 추가 (8개)
-        for (let i = 0; i < 8; i++) {
-            const cloud = new PIXI.Graphics();
-            cloud.beginFill(0xFFFFFF, 0.2); // 조금 더 진하게
-            
-            // 더 예쁜 구름 모양 (5개의 원으로 자연스럽게)
-            const scale = 0.8 + Math.random() * 0.4; // 크기 다양화
-            cloud.drawCircle(0, 0, 25 * scale);
-            cloud.drawCircle(-20 * scale, 8 * scale, 18 * scale);
-            cloud.drawCircle(20 * scale, 8 * scale, 18 * scale);
-            cloud.drawCircle(-10 * scale, -5 * scale, 15 * scale);
-            cloud.drawCircle(10 * scale, -5 * scale, 15 * scale);
-            cloud.endFill();
-            
-            cloud.x = Math.random() * GAME_CONFIG.width * 2;
-            cloud.y = Math.random() * GAME_CONFIG.height;
-            this.bgLayer.addChild(cloud);
-            this.clouds.push(cloud);
-        }
-        
-        // 유성 추가 (5개)
-        for (let i = 0; i < 5; i++) {
-            const shootingStar = new PIXI.Graphics();
-            shootingStar.lineStyle(1.5, 0xFFFFFF, 0.8);
-            shootingStar.moveTo(0, 0);
-            shootingStar.lineTo(20, 10);
-            
-            const x = Math.random() * GAME_CONFIG.width;
-            const y = Math.random() * GAME_CONFIG.height;
-            shootingStar.x = x;
-            shootingStar.y = y;
-            shootingStar.alpha = 0;
-            
-            this.bgLayer.addChild(shootingStar);
-            this.shootingStars.push({
-                graphic: shootingStar,
-                x: x,
-                y: y,
-                speed: 3 + Math.random() * 2,
-                respawnTimer: Math.random() * 300 // 랜덤 시작
             });
         }
     }
@@ -732,51 +687,6 @@ export class GameManager {
                 (star.graphic as any).baseX += GAME_CONFIG.width + 100;
             } else if (star.graphic.x > GAME_CONFIG.width + 50) {
                 (star.graphic as any).baseX -= GAME_CONFIG.width + 100;
-            }
-        });
-        
-        // 구름 이동 (패럴랙스 - 배경보다 느리게)
-        const cloudScrollSpeed = this.scrollOffsetX * 0.15;
-        this.clouds.forEach(cloud => {
-            const baseX = (cloud as any).baseX || cloud.x;
-            if (!(cloud as any).baseX) {
-                (cloud as any).baseX = cloud.x;
-            }
-            cloud.x = baseX - cloudScrollSpeed;
-            
-            // 화면 밖으로 나가면 반대편에서 재등장
-            if (cloud.x < -150) {
-                (cloud as any).baseX += GAME_CONFIG.width + 300;
-                cloud.y = Math.random() * GAME_CONFIG.height;
-            } else if (cloud.x > GAME_CONFIG.width + 150) {
-                (cloud as any).baseX -= GAME_CONFIG.width + 300;
-                cloud.y = Math.random() * GAME_CONFIG.height;
-            }
-        });
-        
-        // 유성 애니메이션
-        this.shootingStars.forEach(shootingStar => {
-            shootingStar.respawnTimer--;
-            
-            if (shootingStar.respawnTimer <= 0 && shootingStar.graphic.alpha === 0) {
-                // 새로운 유성 시작
-                shootingStar.x = GAME_CONFIG.width + Math.random() * 200;
-                shootingStar.y = Math.random() * GAME_CONFIG.height * 0.5; // 상단 절반
-                shootingStar.graphic.x = shootingStar.x;
-                shootingStar.graphic.y = shootingStar.y;
-                shootingStar.graphic.alpha = 1;
-                shootingStar.respawnTimer = 200 + Math.random() * 300; // 다음 출현 시간
-            }
-            
-            if (shootingStar.graphic.alpha > 0) {
-                // 유성 이동 (오른쪽 위에서 왼쪽 아래로)
-                shootingStar.graphic.x -= shootingStar.speed;
-                shootingStar.graphic.y += shootingStar.speed * 0.5;
-                
-                // 화면 밖으로 나가면 숨김
-                if (shootingStar.graphic.x < -50 || shootingStar.graphic.y > GAME_CONFIG.height) {
-                    shootingStar.graphic.alpha = 0;
-                }
             }
         });
     }
