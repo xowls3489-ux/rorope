@@ -26,8 +26,39 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Build web app
-      run: npm run build
+    - name: Build web app (Production + Minified)
+      env:
+        NODE_ENV: production
+      run: |
+        echo "🚀 Building with production optimizations..."
+        npm run build
+        
+        echo ""
+        echo "📊 Build Size Report:"
+        echo "===================="
+        
+        # dist 폴더 크기 측정
+        DIST_SIZE=$(du -sh dist | cut -f1)
+        echo "Total dist folder: $DIST_SIZE"
+        
+        # 각 파일 크기 측정
+        echo ""
+        echo "Asset sizes:"
+        find dist -type f -name "*.js" -o -name "*.css" | while read file; do
+          SIZE=$(du -h "$file" | cut -f1)
+          echo "  $file: $SIZE"
+        done
+        
+        # Gzip 압축 시뮬레이션
+        echo ""
+        echo "Gzipped sizes (simulated):"
+        find dist -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) | while read file; do
+          GZIP_SIZE=$(gzip -c "$file" | wc -c | awk '{printf "%.1fK", $1/1024}')
+          echo "  $file: $GZIP_SIZE"
+        done
+        
+        echo ""
+        echo "✅ Build optimization complete!"
     
     - name: Sync Capacitor
       run: npx cap sync android
