@@ -13,6 +13,9 @@ export interface GameState {
   isSlowMotion: boolean; // 슬로우 모션 활성화 여부
   lastComboMilestone: number; // 마지막 슬로우 모션 발동 콤보
   isInvincible: boolean; // 무적 모드 (별 파워업)
+  highScore: number; // 최고 점수 (미터)
+  maxCombo: number; // 최고 콤보
+  isNewRecord: boolean; // 신기록 달성 여부
 }
 
 // 플레이어 상태 인터페이스
@@ -55,7 +58,10 @@ export const gameState = map<GameState>({
   combo: 0,
   isSlowMotion: false,
   lastComboMilestone: 0,
-  isInvincible: false
+  isInvincible: false,
+  highScore: loadHighScore(), // localStorage에서 로드
+  maxCombo: loadMaxCombo(), // localStorage에서 로드
+  isNewRecord: false
 });
 
 // 플레이어 상태 스토어
@@ -88,6 +94,41 @@ export const ropeState = map<RopeState>({
 // 플랫폼 배열 스토어
 export const platforms = atom<PIXI.Graphics[]>([]);
 
+// localStorage 헬퍼 함수
+const loadHighScore = (): number => {
+  try {
+    const saved = localStorage.getItem('rorope_highScore');
+    return saved ? parseInt(saved, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const loadMaxCombo = (): number => {
+  try {
+    const saved = localStorage.getItem('rorope_maxCombo');
+    return saved ? parseInt(saved, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const saveHighScore = (score: number): void => {
+  try {
+    localStorage.setItem('rorope_highScore', score.toString());
+  } catch (e) {
+    console.warn('최고 점수 저장 실패:', e);
+  }
+};
+
+const saveMaxCombo = (combo: number): void => {
+  try {
+    localStorage.setItem('rorope_maxCombo', combo.toString());
+  } catch (e) {
+    console.warn('최고 콤보 저장 실패:', e);
+  }
+};
+
 // 게임 액션들
 export const gameActions = {
   startGame: () => {
@@ -101,6 +142,7 @@ export const gameActions = {
     gameState.setKey('isSlowMotion', false);
     gameState.setKey('lastComboMilestone', 0);
     gameState.setKey('isInvincible', false);
+    gameState.setKey('isNewRecord', false); // 신기록 플래그 초기화
     
     // 플레이어 위치는 플랫폼 생성 후 GameManager에서 설정
     // 여기서는 기본값만 설정 (실제 위치는 나중에 업데이트됨)
@@ -114,6 +156,26 @@ export const gameActions = {
   },
 
   endGame: () => {
+    const state = gameState.get();
+    const currentScore = state.score;
+    const currentCombo = state.combo;
+    let isNewRecord = false;
+    
+    // 최고 점수 갱신 체크
+    if (currentScore > state.highScore) {
+      gameState.setKey('highScore', currentScore);
+      saveHighScore(currentScore);
+      isNewRecord = true;
+    }
+    
+    // 최고 콤보 갱신 체크
+    if (currentCombo > state.maxCombo) {
+      gameState.setKey('maxCombo', currentCombo);
+      saveMaxCombo(currentCombo);
+      isNewRecord = true;
+    }
+    
+    gameState.setKey('isNewRecord', isNewRecord);
     gameState.setKey('isPlaying', false);
     gameState.setKey('gameOver', true);
   },

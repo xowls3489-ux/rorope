@@ -1292,6 +1292,19 @@ export class GameScene {
             gameActions.resetCombo();
             this.uiManager.onGameOver();
             this.audioManager.playGameOver();
+            
+            // 신기록 달성 시 축하 효과
+            const game = gameState.get();
+            if (game.isNewRecord) {
+                const centerX = GAME_CONFIG.width / 2;
+                const centerY = GAME_CONFIG.height / 2;
+                
+                // 대폭발 파티클 효과
+                vfxSystem.spawnComboParticleBurst(centerX, centerY, 20);
+                vfxSystem.spawnComboShockwave(centerX, centerY, 20);
+                
+                console.log('🎉 신기록 달성!');
+            }
         }
     }
 

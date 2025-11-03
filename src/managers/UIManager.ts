@@ -50,9 +50,10 @@ export class UIManager {
         // 게임오버 텍스트
         this.gameOverText = new PIXI.Text('GAME OVER\nTAP TO RETRY', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 28,
+            fontSize: 24,
             fill: COLORS.ui,
-            align: 'center'
+            align: 'center',
+            lineHeight: 32
         });
         this.gameOverText.anchor.set(0.5, 0.5);
         this.updateGameOverPosition();
@@ -142,6 +143,27 @@ export class UIManager {
      * 게임 오버 시 UI 업데이트
      */
     public onGameOver(): void {
+        const game = gameState.get();
+        const currentScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+        const highScore = game.highScore;
+        const currentCombo = game.combo;
+        const maxCombo = game.maxCombo;
+        const isNewRecord = game.isNewRecord;
+
+        // 게임오버 텍스트 구성
+        let gameOverMessage = 'GAME OVER\n\n';
+        
+        if (isNewRecord) {
+            gameOverMessage += '🎉 NEW RECORD! 🎉\n\n';
+        }
+        
+        gameOverMessage += `Score: ${currentScore} m\n`;
+        gameOverMessage += `Best: ${highScore} m\n\n`;
+        gameOverMessage += `Combo: ${currentCombo}\n`;
+        gameOverMessage += `Max Combo: ${maxCombo}\n\n`;
+        gameOverMessage += 'TAP TO RETRY';
+
+        this.gameOverText.text = gameOverMessage;
         this.gameOverText.visible = true;
         animationSystem.gameOverAnimation(this.gameOverText);
     }
