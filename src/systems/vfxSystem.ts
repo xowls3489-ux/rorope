@@ -34,6 +34,9 @@ export class VFXSystem {
         this.fxLayer.name = 'fxLayer';
         (this.fxLayer as any).zIndex = 100;
         this.fxLayer.alpha = 1.0;
+        // fxLayer가 클릭 이벤트를 막지 않도록 설정 (중요!)
+        (this.fxLayer as any).eventMode = 'none';
+        this.fxLayer.interactive = false;
         stage.addChild(this.fxLayer);
 
         // 파티클 풀 생성
@@ -531,6 +534,9 @@ export class VFXSystem {
         // 오버레이가 없거나 파괴되었으면 새로 생성
         if (!this.slowMotionOverlay || !this.slowMotionOverlay.parent) {
             this.slowMotionOverlay = new PIXI.Graphics();
+            // 오버레이가 클릭 이벤트를 막지 않도록 설정 (중요!)
+            (this.slowMotionOverlay as any).eventMode = 'none';
+            this.slowMotionOverlay.interactive = false;
             this.fxLayer.addChild(this.slowMotionOverlay);
         }
 
