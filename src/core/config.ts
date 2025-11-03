@@ -64,6 +64,13 @@ export const GAME_CONFIG = {
     invincibleTargetY: 0.5,
     starSpawnChance: 0.05,
     starMinDistance: 8000,
+    
+    // 게임오버 존 설정 (화면 밖으로 얼마나 나갈 수 있는지)
+    gameOverBoundaryTop: -300, // 위쪽 (음수: 화면 위로 300px까지 허용)
+    gameOverBoundaryBottom: 100, // 아래쪽 (양수: 화면 아래로 100px까지 허용)
+    gameOverBoundaryLeft: -100, // 왼쪽 (음수: 화면 왼쪽으로 100px까지 허용)
+    gameOverAbsoluteTop: -800, // 절대 Y 좌표 상한 (위로 너무 튕기지 않도록)
+    gameOverAbsoluteBottom: 2000, // 절대 Y 좌표 하한 (아래로 떨어지는 것)
 };
 
 export const COLORS = {

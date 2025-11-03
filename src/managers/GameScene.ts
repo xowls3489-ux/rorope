@@ -1266,19 +1266,22 @@ export class GameScene {
             return;
         }
 
-        const playerYTooLow = playerPos.y > 2000;
-        const playerYTooHigh = playerPos.y < -500;
+        // 절대 Y 좌표 체크 (너무 위/아래로 벗어나는 경우)
+        const playerYTooLow = playerPos.y > GAME_CONFIG.gameOverAbsoluteBottom;
+        const playerYTooHigh = playerPos.y < GAME_CONFIG.gameOverAbsoluteTop;
 
+        // 화면 기준 상대 좌표 체크
         const screenX = playerPos.x + this.world.x;
         const screenY = playerPos.y + this.world.y;
 
-        const outBottom = screenY > GAME_CONFIG.height + 50;
-        const outTop = screenY < -50;
-        const outLeft = screenX < -50;
+        const outBottom = screenY > GAME_CONFIG.height + GAME_CONFIG.gameOverBoundaryBottom;
+        const outTop = screenY < GAME_CONFIG.gameOverBoundaryTop; // -300 (위로 300px까지 여유)
+        const outLeft = screenX < GAME_CONFIG.gameOverBoundaryLeft;
 
         if (playerYTooLow || playerYTooHigh || outBottom || outTop || outLeft) {
             console.log('GAME OVER!', {
                 playerY: playerPos.y.toFixed(1),
+                screenY: screenY.toFixed(1),
                 playerYTooLow,
                 playerYTooHigh,
                 outBottom,
