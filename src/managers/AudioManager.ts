@@ -138,5 +138,41 @@ export class AudioManager {
     public stopBackground(): void {
         this.stop('background');
     }
+    
+    /**
+     * 배경음악 볼륨 별도 조절 (효과음과 독립적)
+     */
+    public setBackgroundVolume(volume: number): void {
+        const bgSound = (soundSystem as any).sounds?.get('background');
+        if (bgSound) {
+            bgSound.volume(Math.max(0, Math.min(1, volume)));
+        }
+    }
+    
+    /**
+     * 배경음악 페이드 인 (재생 + 페이드)
+     */
+    public fadeInBackground(duration: number = 1500): void {
+        const bgSound = (soundSystem as any).sounds?.get('background');
+        if (bgSound && !bgSound.playing()) {
+            bgSound.volume(0); // 볼륨 0에서 시작
+            bgSound.play();
+            bgSound.fade(0, this.isMuted ? 0 : 0.15, duration); // 페이드 인
+            console.log('배경음악 페이드 인 시작');
+        }
+    }
+    
+    /**
+     * 배경음악 페이드 아웃
+     */
+    public fadeOutBackground(duration: number = 1000): void {
+        const bgSound = (soundSystem as any).sounds?.get('background');
+        if (bgSound) {
+            bgSound.fade(0.15, 0, duration);
+            setTimeout(() => {
+                this.stopBackground();
+            }, duration);
+        }
+    }
 }
 

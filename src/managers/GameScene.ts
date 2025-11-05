@@ -656,6 +656,9 @@ export class GameScene {
         this.uiManager.updateScore();
         this.uiManager.onGameStart();
         vfxSystem.reset();
+        
+        // 배경음악 페이드 인 (부드러운 시작)
+        this.audioManager.fadeInBackground(1500);
     }
 
     public startGameFromUI(): void {
@@ -1296,7 +1299,12 @@ export class GameScene {
             gameActions.endGame(finalScore); // 실제 점수 전달
             gameActions.resetCombo();
             this.uiManager.onGameOver();
-            this.audioManager.playGameOver();
+            
+            // 배경음 페이드 아웃 후 게임오버 사운드 재생
+            this.audioManager.fadeOutBackground(500);
+            setTimeout(() => {
+                this.audioManager.playGameOver();
+            }, 300);
             
             // 신기록 달성 시 축하 효과
             const game = gameState.get();

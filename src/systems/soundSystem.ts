@@ -111,12 +111,20 @@ export class SoundSystem {
       rate: 1.2
     });
 
-    // 배경음악 (부드러운 루프)
+    // 배경음악 (실제 파일 로드)
     const backgroundMusic = new Howl({
-      src: [this.generateTone(220, 0.5), this.generateTone(330, 0.5)], // A3 + E4
-      volume: 0.2,
-      rate: 1.0,
-      loop: true
+      src: ['/src/sounds/bgm/loopbgm.wav'],
+      volume: 0.15, // 배경음은 낮게
+      loop: true, // 무한 루프
+      preload: true, // 미리 로드
+      autoplay: false, // 자동 재생 비활성화 (수동으로 제어)
+      html5: false, // Web Audio API 사용 (더 나은 성능)
+      onload: () => {
+        console.log('배경음악 로드 완료');
+      },
+      onloaderror: (id, error) => {
+        console.warn('배경음악 로드 실패:', error);
+      }
     });
 
     // 점프 사운드
@@ -172,16 +180,29 @@ export class SoundSystem {
     const sound = this.sounds.get(soundName);
     if (sound) {
       try {
-        // 배경/루프/단발음 중복 재생 방지: 이미 재생 중이면 스킵
+        // 배경음악 특별 처리 (최적화)
+        if (soundName === 'background') {
+          // 이미 재생 중이면 스킵 (중복 방지)
+          if (sound.playing()) {
+            console.log('배경음악 이미 재생 중');
+            return;
+          }
+          // 배경음은 낮은 볼륨으로 재생
+          sound.volume(this.isMuted ? 0 : 0.15);
+          sound.play();
+          console.log('배경음악 재생 시작');
+          return;
+        }
+        
+        // 루프 사운드 중복 재생 방지
         if (sound.playing()) {
-          // 루프 사운드는 볼륨만 보정하고 종료
-          if (soundName === 'background' || soundName === 'swing') {
+          if (soundName === 'swing') {
             sound.volume(this.isMuted ? 0 : this.masterVolume);
           }
           return;
         }
 
-        // 최소 재생 간격 체크
+        // 최소 재생 간격 체크 (효과음)
         const now = performance.now();
         const last = this.lastPlayedAt.get(soundName) ?? 0;
         const minGap = this.minIntervalMs[soundName] ?? 80;
