@@ -130,6 +130,14 @@ export class AudioManager {
     public playJump(): void {
         this.play('jump');
     }
+    
+    public playHit(): void {
+        this.play('hit');
+    }
+    
+    public playComboUp(): void {
+        this.play('comboUp');
+    }
 
     public playBackground(): void {
         this.play('background');

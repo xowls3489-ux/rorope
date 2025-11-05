@@ -14,7 +14,9 @@ export class SoundSystem {
     background: 2000, // 배경음: 사실상 한 번만
     landing: 120, // 착지 연타 방지
     score: 120, // 점수 연타 방지
-    ropeShoot: 120,
+    ropeShoot: 100, // 로프 발사 (swing.wav)
+    hit: 50, // 히트 사운드 (빠른 연타 가능)
+    comboUp: 80, // 콤보 증가
     ropeRelease: 120,
     jump: 100,
     gameOver: 500
@@ -68,17 +70,34 @@ export class SoundSystem {
   }
 
   private initSounds(): void {
-    // 로프 발사 사운드 (더 역동적인 사운드)
+    // 로프 발사 사운드 (swing.wav)
     const ropeShootSound = new Howl({
-      src: [this.generateTone(440, 0.1), this.generateTone(550, 0.1)], // A4 + C#5
-      volume: 0.5,
-      rate: 1.0
+      src: ['/src/sounds/sfx/swing.wav'],
+      volume: 0.4,
+      preload: true,
+      html5: false,
     });
 
-    // 로프 해제 사운드
+    // 플랫폼 히트 사운드 (hit.wav)
+    const hitSound = new Howl({
+      src: ['/src/sounds/sfx/hit.wav'],
+      volume: 0.5,
+      preload: true,
+      html5: false,
+    });
+    
+    // 콤보 증가 사운드 (comboup.wav)
+    const comboUpSound = new Howl({
+      src: ['/src/sounds/sfx/comboup.wav'],
+      volume: 0.4,
+      preload: true,
+      html5: false,
+    });
+
+    // 로프 해제 사운드 (프로그래매틱)
     const ropeReleaseSound = new Howl({
       src: [this.generateTone(330, 0.15), this.generateTone(440, 0.1)], // E4 + A4
-      volume: 0.4,
+      volume: 0.3,
       rate: 1.0
     });
 
@@ -135,6 +154,8 @@ export class SoundSystem {
     });
 
     this.sounds.set('ropeShoot', ropeShootSound);
+    this.sounds.set('hit', hitSound); // 플랫폼 히트
+    this.sounds.set('comboUp', comboUpSound); // 콤보 증가
     this.sounds.set('ropeRelease', ropeReleaseSound);
     this.sounds.set('landing', landingSound);
     this.sounds.set('swing', swingSound);

@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { gameActions, playerState, ropeState, platforms, gameState } from '../stores/gameStore';
 import { vfxSystem } from './vfxSystem';
+import { soundSystem } from './soundSystem';
 
 export class RopeSystem {
     launchFromClick(app: PIXI.Application, world: PIXI.Container, clientX: number, clientY: number, shootSpeed: number = 2200, maxLength: number = 700): void {
@@ -89,10 +90,16 @@ export class RopeSystem {
             const length = Math.hypot(playerPos.x - anchorX, playerPos.y - anchorY);
             gameActions.attachRope(anchorX, anchorY, length);
             
+            // 플랫폼 히트 사운드 재생
+            soundSystem.play('hit');
+            
             // 로프 성공적으로 연결됨 → 콤보 증가!
             gameActions.addCombo();
             const game = gameState.get();
             const newCombo = game.combo || 0;
+            
+            // 콤보 증가 사운드 재생
+            soundSystem.play('comboUp');
             
             // 풀링 시작 시 속도를 0으로 리셋 (안전)
             // 풀링 로직이 속도를 올바르게 계산할 것임
