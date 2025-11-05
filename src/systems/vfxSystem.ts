@@ -534,9 +534,6 @@ export class VFXSystem {
         // 오버레이가 없거나 파괴되었으면 새로 생성
         if (!this.slowMotionOverlay || !this.slowMotionOverlay.parent) {
             this.slowMotionOverlay = new PIXI.Graphics();
-            // 오버레이가 클릭 이벤트를 막지 않도록 설정 (중요!)
-            (this.slowMotionOverlay as any).eventMode = 'none';
-            this.slowMotionOverlay.interactive = false;
             this.fxLayer.addChild(this.slowMotionOverlay);
         }
 
@@ -551,6 +548,11 @@ export class VFXSystem {
         this.slowMotionOverlay.x = -5000;
         this.slowMotionOverlay.y = -5000;
         this.slowMotionOverlay.visible = true;
+        
+        // 매번 클릭 이벤트를 막지 않도록 확실하게 설정 (중요!)
+        (this.slowMotionOverlay as any).eventMode = 'none';
+        this.slowMotionOverlay.interactive = false;
+        this.slowMotionOverlay.interactiveChildren = false;
     }
 
     /**

@@ -98,10 +98,13 @@ export class GameScene {
 
         this.stage = this.app.stage;
 
-        // 레이어 초기화
+        // 레이어 초기화 (뒤에서 앞 순서)
         this.bgLayer = new PIXI.Container();
         this.bgLayer.name = 'bgLayer';
-        this.stage.addChildAt(this.bgLayer, 0);
+        this.stage.addChild(this.bgLayer);
+
+        // fxLayer를 bgLayer 다음에 추가 (world보다 뒤에)
+        this.fxLayer = vfxSystem.initialize(this.stage);
 
         this.world = new PIXI.Container();
         this.world.name = 'world';
@@ -109,8 +112,6 @@ export class GameScene {
         (this.world as any).eventMode = 'static';
         this.world.interactive = true;
         this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
-
-        this.fxLayer = vfxSystem.initialize(this.stage);
 
         // 매니저 초기화
         this.uiManager = new UIManager(this.stage);
@@ -1288,7 +1289,11 @@ export class GameScene {
                 outTop,
                 outLeft,
             });
-            gameActions.endGame();
+            
+            // 최종 점수 계산 (미터 단위)
+            const finalScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+            
+            gameActions.endGame(finalScore); // 실제 점수 전달
             gameActions.resetCombo();
             this.uiManager.onGameOver();
             this.audioManager.playGameOver();

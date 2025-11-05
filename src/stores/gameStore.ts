@@ -9,12 +9,13 @@ export interface GameState {
   cameraX: number;
   lastPlatformX: number;
   gameOver: boolean;
-  combo: number; // 콤보 카운터
+  combo: number; // 현재 콤보 카운터
+  roundMaxCombo: number; // 이번 라운드 최고 콤보
   isSlowMotion: boolean; // 슬로우 모션 활성화 여부
   lastComboMilestone: number; // 마지막 슬로우 모션 발동 콤보
   isInvincible: boolean; // 무적 모드 (별 파워업)
   highScore: number; // 최고 점수 (미터)
-  maxCombo: number; // 최고 콤보
+  maxCombo: number; // 역대 최고 콤보
   isNewRecord: boolean; // 신기록 달성 여부
 }
 
@@ -47,6 +48,41 @@ export interface RopeState {
   pullSpeed?: number;
 }
 
+// localStorage 헬퍼 함수 (스토어 초기화 전에 선언 필요)
+const loadHighScore = (): number => {
+  try {
+    const saved = localStorage.getItem('rorope_highScore');
+    return saved ? parseInt(saved, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const loadMaxCombo = (): number => {
+  try {
+    const saved = localStorage.getItem('rorope_maxCombo');
+    return saved ? parseInt(saved, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const saveHighScore = (score: number): void => {
+  try {
+    localStorage.setItem('rorope_highScore', score.toString());
+  } catch (e) {
+    console.warn('최고 점수 저장 실패:', e);
+  }
+};
+
+const saveMaxCombo = (combo: number): void => {
+  try {
+    localStorage.setItem('rorope_maxCombo', combo.toString());
+  } catch (e) {
+    console.warn('최고 콤보 저장 실패:', e);
+  }
+};
+
 // 게임 상태 스토어
 export const gameState = map<GameState>({
   isPlaying: false,
@@ -56,6 +92,7 @@ export const gameState = map<GameState>({
   lastPlatformX: 0,
   gameOver: false,
   combo: 0,
+  roundMaxCombo: 0, // 이번 라운드 최고 콤보
   isSlowMotion: false,
   lastComboMilestone: 0,
   isInvincible: false,
@@ -94,41 +131,6 @@ export const ropeState = map<RopeState>({
 // 플랫폼 배열 스토어
 export const platforms = atom<PIXI.Graphics[]>([]);
 
-// localStorage 헬퍼 함수
-const loadHighScore = (): number => {
-  try {
-    const saved = localStorage.getItem('rorope_highScore');
-    return saved ? parseInt(saved, 10) : 0;
-  } catch {
-    return 0;
-  }
-};
-
-const loadMaxCombo = (): number => {
-  try {
-    const saved = localStorage.getItem('rorope_maxCombo');
-    return saved ? parseInt(saved, 10) : 0;
-  } catch {
-    return 0;
-  }
-};
-
-const saveHighScore = (score: number): void => {
-  try {
-    localStorage.setItem('rorope_highScore', score.toString());
-  } catch (e) {
-    console.warn('최고 점수 저장 실패:', e);
-  }
-};
-
-const saveMaxCombo = (combo: number): void => {
-  try {
-    localStorage.setItem('rorope_maxCombo', combo.toString());
-  } catch (e) {
-    console.warn('최고 콤보 저장 실패:', e);
-  }
-};
-
 // 게임 액션들
 export const gameActions = {
   startGame: () => {
@@ -139,6 +141,7 @@ export const gameActions = {
     gameState.setKey('lastPlatformX', 0);
     gameState.setKey('gameOver', false);
     gameState.setKey('combo', 0);
+    gameState.setKey('roundMaxCombo', 0); // 이번 라운드 최고 콤보 초기화
     gameState.setKey('isSlowMotion', false);
     gameState.setKey('lastComboMilestone', 0);
     gameState.setKey('isInvincible', false);
@@ -155,24 +158,30 @@ export const gameActions = {
     platforms.set([]);
   },
 
-  endGame: () => {
+  endGame: (finalScore?: number) => {
     const state = gameState.get();
-    const currentScore = state.score;
-    const currentCombo = state.combo;
+    // finalScore가 전달되면 사용, 아니면 기존 score 사용
+    const currentScore = finalScore !== undefined ? finalScore : state.score;
+    const roundMaxCombo = state.roundMaxCombo; // 이번 라운드 최고 콤보
     let isNewRecord = false;
+    
+    // 최종 점수를 gameState에 저장
+    gameState.setKey('score', currentScore);
     
     // 최고 점수 갱신 체크
     if (currentScore > state.highScore) {
       gameState.setKey('highScore', currentScore);
       saveHighScore(currentScore);
       isNewRecord = true;
+      console.log(`🎉 신기록! 점수: ${state.highScore} → ${currentScore}`);
     }
     
-    // 최고 콤보 갱신 체크
-    if (currentCombo > state.maxCombo) {
-      gameState.setKey('maxCombo', currentCombo);
-      saveMaxCombo(currentCombo);
+    // 최고 콤보 갱신 체크 (이번 라운드 최고 콤보와 비교)
+    if (roundMaxCombo > state.maxCombo) {
+      gameState.setKey('maxCombo', roundMaxCombo);
+      saveMaxCombo(roundMaxCombo);
       isNewRecord = true;
+      console.log(`🎉 신기록! 콤보: ${state.maxCombo} → ${roundMaxCombo}`);
     }
     
     gameState.setKey('isNewRecord', isNewRecord);
@@ -282,8 +291,14 @@ export const gameActions = {
   },
 
   addCombo: () => {
-    const currentCombo = gameState.get().combo;
-    gameState.setKey('combo', currentCombo + 1);
+    const state = gameState.get();
+    const newCombo = state.combo + 1;
+    gameState.setKey('combo', newCombo);
+    
+    // 이번 라운드 최고 콤보 업데이트
+    if (newCombo > state.roundMaxCombo) {
+      gameState.setKey('roundMaxCombo', newCombo);
+    }
   },
 
   resetCombo: () => {
