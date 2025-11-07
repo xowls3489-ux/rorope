@@ -889,7 +889,7 @@ export class GameScene {
         const worldX = 0;
 
         const viewH = GAME_CONFIG.height;
-        const deadZoneY = 150;
+        const deadZoneY = GAME_CONFIG.cameraDeadZoneY; // config에서 가져오기
         const currentWorldY = this.world.y || 0;
         let targetWorldY = currentWorldY;
         const playerScreenY = playerPos.y + currentWorldY;
@@ -908,7 +908,7 @@ export class GameScene {
             }
         }
 
-        const cameraSpeedY = 0.15;
+        const cameraSpeedY = GAME_CONFIG.cameraSpeedY; // config에서 가져오기
         const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * cameraSpeedY;
 
         this.world.x = worldX;
