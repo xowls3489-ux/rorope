@@ -4,21 +4,62 @@
   import { soundSystem } from '../systems/soundSystem';
 
   let soundEnabled = true;
+  let audioUnlocked = false;
 
   // localStorage에서 사운드 설정 불러오기
-  onMount(() => {
-    const savedSoundEnabled = localStorage.getItem('soundEnabled');
-    if (savedSoundEnabled !== null) {
-      soundEnabled = savedSoundEnabled === 'true';
+  onMount(async () => {
+    const savedSoundMuted = localStorage.getItem('soundMuted');
+    if (savedSoundMuted !== null) {
+      soundEnabled = savedSoundMuted === 'false'; // muted false = enabled true
       soundSystem.setMuted(!soundEnabled);
     }
+    
+    // 오디오 잠금 해제 및 배경음 재생 시도
+    const tryPlayBgm = async () => {
+      if (!audioUnlocked && soundEnabled) {
+        try {
+          await soundSystem.unlock();
+          soundSystem.play('titleBgm');
+          audioUnlocked = true;
+          console.log('타이틀 배경음악 재생 시작');
+        } catch (error) {
+          console.log('자동 재생 실패 (브라우저 정책), 사용자 제스처 대기 중...');
+        }
+      }
+    };
+    
+    // 즉시 시도 (네이티브 앱에서는 성공)
+    await tryPlayBgm();
+    
+    // 실패하면 첫 클릭/터치 대기 (웹 브라우저)
+    if (!audioUnlocked) {
+      const unlockOnGesture = async () => {
+        await tryPlayBgm();
+      };
+      document.addEventListener('click', unlockOnGesture, { once: true });
+      document.addEventListener('touchstart', unlockOnGesture, { once: true });
+    }
+  });
+  
+  onDestroy(() => {
+    // 타이틀씬 떠날 때 타이틀 배경음 정지
+    soundSystem.stop('titleBgm');
   });
 
   function toggleSound() {
     soundEnabled = !soundEnabled;
     soundSystem.setMuted(!soundEnabled);
-    // localStorage에 저장
-    localStorage.setItem('soundEnabled', soundEnabled.toString());
+    // localStorage에 저장 (soundMuted 키로 통일)
+    localStorage.setItem('soundMuted', (!soundEnabled).toString());
+    console.log('사운드 토글:', soundEnabled ? '켜짐' : '꺼짐');
+    
+    // 사운드 켜짐: 타이틀 배경음 재생
+    if (soundEnabled) {
+      soundSystem.play('titleBgm');
+    } else {
+      // 사운드 꺼짐: 타이틀 배경음 정지
+      soundSystem.stop('titleBgm');
+    }
   }
 
   async function startGame() {
@@ -29,7 +70,10 @@
       await soundSystem.unlock();
     }
     
-    // 2. 씬 전환
+    // 2. 타이틀 배경음 정지 (즉시)
+    soundSystem.stop('titleBgm');
+    
+    // 3. 씬 전환
     sceneActions.goToGame();
   }
 </script>

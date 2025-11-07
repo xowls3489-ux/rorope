@@ -138,6 +138,10 @@ export class AudioManager {
     public playComboUp(): void {
         this.play('comboUp');
     }
+    
+    public playBabat10(): void {
+        this.play('babat10');
+    }
 
     public playBackground(): void {
         this.play('background');
@@ -161,11 +165,17 @@ export class AudioManager {
      * 배경음악 페이드 인 (재생 + 페이드)
      */
     public fadeInBackground(duration: number = 1500): void {
+        // 뮤트 상태면 재생하지 않음
+        if (this.isMuted) {
+            console.log('배경음악 뮤트 상태 - 재생 안 함');
+            return;
+        }
+        
         const bgSound = (soundSystem as any).sounds?.get('background');
         if (bgSound && !bgSound.playing()) {
             bgSound.volume(0); // 볼륨 0에서 시작
             bgSound.play();
-            bgSound.fade(0, this.isMuted ? 0 : 0.15, duration); // 페이드 인
+            bgSound.fade(0, 0.15, duration); // 페이드 인
             console.log('배경음악 페이드 인 시작');
         }
     }

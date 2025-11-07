@@ -5,6 +5,7 @@ import * as PIXI from 'pixi.js';
 export interface GameState {
   isPlaying: boolean;
   isSwinging: boolean;
+  isPaused: boolean; // 일시정지 상태
   score: number;
   cameraX: number;
   lastPlatformX: number;
@@ -87,6 +88,7 @@ const saveMaxCombo = (combo: number): void => {
 export const gameState = map<GameState>({
   isPlaying: false,
   isSwinging: false,
+  isPaused: false, // 일시정지 상태
   score: 0,
   cameraX: 0,
   lastPlatformX: 0,
@@ -287,7 +289,11 @@ export const gameActions = {
   },
 
   pauseGame: () => {
-    gameState.setKey('isPlaying', false);
+    gameState.setKey('isPaused', true);
+  },
+  
+  resumeGame: () => {
+    gameState.setKey('isPaused', false);
   },
 
   addCombo: () => {

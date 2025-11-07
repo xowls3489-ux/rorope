@@ -98,8 +98,15 @@ export class RopeSystem {
             const game = gameState.get();
             const newCombo = game.combo || 0;
             
-            // 콤보 증가 사운드 재생
-            soundSystem.play('comboUp');
+            // 콤보 사운드 재생 (10의 배수일 때 특별 사운드)
+            if (newCombo % 10 === 0 && newCombo > 0) {
+                // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
+                soundSystem.play('babat10');
+                console.log(`🎉 ${newCombo} 콤보! 바밧~`);
+            } else {
+                // 일반 콤보 증가 사운드
+                soundSystem.play('comboUp');
+            }
             
             // 풀링 시작 시 속도를 0으로 리셋 (안전)
             // 풀링 로직이 속도를 올바르게 계산할 것임

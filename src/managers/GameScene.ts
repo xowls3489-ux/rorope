@@ -116,6 +116,21 @@ export class GameScene {
         // 매니저 초기화
         this.uiManager = new UIManager(this.stage);
         this.audioManager = new AudioManager();
+        
+        // 사운드 설정 확인 및 적용
+        const savedMuted = localStorage.getItem('soundMuted');
+        if (savedMuted !== null) {
+            const isMuted = savedMuted === 'true';
+            this.audioManager.setMuted(isMuted);
+            console.log('게임 시작 시 사운드 설정:', isMuted ? '뮤트' : '활성');
+        }
+        
+        // 일시정지 콜백 설정
+        this.uiManager.setPauseCallbacks(
+            () => this.pauseGame(),
+            () => this.resumeGame(),
+            (enabled: boolean) => this.toggleSound(enabled)
+        );
 
         // 배경, 플랫폼 풀, 게임 오브젝트, 입력 초기화
         await this.initBackground();
@@ -1324,6 +1339,7 @@ export class GameScene {
     private update(): void {
         const currentState = gameState.get();
         if (!currentState.isPlaying) return;
+        if (currentState.isPaused) return; // 일시정지 중이면 업데이트 건너뛰기
 
         this.updateSlowMotion();
         this.updateInvincibleMode();
@@ -1402,6 +1418,34 @@ export class GameScene {
 
     public getAudioManager(): AudioManager {
         return this.audioManager;
+    }
+    
+    // 일시정지
+    private pauseGame(): void {
+        gameActions.pauseGame();
+        this.uiManager.showPausePanel();
+        
+        // 배경음 볼륨 낮춤
+        this.audioManager.setBackgroundVolume(0.05);
+        
+        console.log('게임 일시정지');
+    }
+    
+    // 재개
+    private resumeGame(): void {
+        gameActions.resumeGame();
+        this.uiManager.hidePausePanel();
+        
+        // 배경음 볼륨 복구
+        this.audioManager.setBackgroundVolume(0.15);
+        
+        console.log('게임 재개');
+    }
+    
+    // 사운드 토글
+    private toggleSound(enabled: boolean): void {
+        this.audioManager.setMuted(!enabled);
+        console.log('사운드 토글:', enabled ? '켜짐' : '꺼짐');
     }
 }
 

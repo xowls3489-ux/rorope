@@ -11,12 +11,14 @@ export class SoundSystem {
   // 사운드별 최소 재생 간격(ms) - 이 간격 내에서는 재생 안 함
   private minIntervalMs: Record<string, number> = {
     swing: 150, // 루프형: 자주 트리거되어도 150ms 내 중복 방지
-    background: 2000, // 배경음: 사실상 한 번만
+    background: 2000, // 게임 배경음
+    titleBgm: 2000, // 타이틀 배경음
     landing: 120, // 착지 연타 방지
     score: 120, // 점수 연타 방지
     ropeShoot: 100, // 로프 발사 (swing.wav)
     hit: 50, // 히트 사운드 (빠른 연타 가능)
     comboUp: 80, // 콤보 증가
+    babat10: 1000, // 10콤보 특별 사운드 (1초 간격)
     ropeRelease: 120,
     jump: 100,
     gameOver: 500
@@ -27,10 +29,10 @@ export class SoundSystem {
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
     
-    // localStorage에서 사운드 설정 불러오기
-    const savedSoundEnabled = localStorage.getItem('soundEnabled');
-    if (savedSoundEnabled !== null) {
-      this.isMuted = savedSoundEnabled === 'false';
+    // localStorage에서 사운드 설정 불러오기 (soundMuted 키로 통일)
+    const savedSoundMuted = localStorage.getItem('soundMuted');
+    if (savedSoundMuted !== null) {
+      this.isMuted = savedSoundMuted === 'true';
     }
   }
 
@@ -93,6 +95,17 @@ export class SoundSystem {
       preload: true,
       html5: false,
     });
+    
+    // 10콤보 특별 사운드 (바밧~ 소리)
+    const babat10ComboSound = new Howl({
+      src: ['/src/sounds/sfx/babat.wav'],
+      volume: 0.6,
+      preload: true,
+      html5: false,
+      onloaderror: (id, error) => {
+        console.warn('babat.wav 로드 실패:', error);
+      }
+    });
 
     // 로프 해제 사운드 (프로그래매틱)
     const ropeReleaseSound = new Howl({
@@ -130,19 +143,35 @@ export class SoundSystem {
       rate: 1.2
     });
 
-    // 배경음악 (실제 파일 로드)
+    // 게임 배경음악
     const backgroundMusic = new Howl({
       src: ['/src/sounds/bgm/loopbgm.wav'],
-      volume: 0.15, // 배경음은 낮게
-      loop: true, // 무한 루프
-      preload: true, // 미리 로드
-      autoplay: false, // 자동 재생 비활성화 (수동으로 제어)
-      html5: false, // Web Audio API 사용 (더 나은 성능)
+      volume: 0.15,
+      loop: true,
+      preload: true,
+      autoplay: false,
+      html5: false,
       onload: () => {
-        console.log('배경음악 로드 완료');
+        console.log('게임 배경음악 로드 완료');
       },
       onloaderror: (id, error) => {
-        console.warn('배경음악 로드 실패:', error);
+        console.warn('게임 배경음악 로드 실패:', error);
+      }
+    });
+    
+    // 타이틀 배경음악
+    const titleMusic = new Howl({
+      src: ['/src/sounds/bgm/titlebgm.mp3'],
+      volume: 0.2,
+      loop: true,
+      preload: true,
+      autoplay: false,
+      html5: false,
+      onload: () => {
+        console.log('타이틀 배경음악 로드 완료');
+      },
+      onloaderror: (id, error) => {
+        console.warn('타이틀 배경음악 로드 실패:', error);
       }
     });
 
@@ -156,12 +185,14 @@ export class SoundSystem {
     this.sounds.set('ropeShoot', ropeShootSound);
     this.sounds.set('hit', hitSound); // 플랫폼 히트
     this.sounds.set('comboUp', comboUpSound); // 콤보 증가
+    this.sounds.set('babat10', babat10ComboSound); // 10콤보 특별 사운드
     this.sounds.set('ropeRelease', ropeReleaseSound);
     this.sounds.set('landing', landingSound);
     this.sounds.set('swing', swingSound);
     this.sounds.set('gameOver', gameOverSound);
     this.sounds.set('score', scoreSound);
-    this.sounds.set('background', backgroundMusic);
+    this.sounds.set('background', backgroundMusic); // 게임 배경음
+    this.sounds.set('titleBgm', titleMusic); // 타이틀 배경음
     this.sounds.set('jump', jumpSound);
   }
 
@@ -177,11 +208,9 @@ export class SoundSystem {
       data[i] = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.3;
     }
 
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start();
-
+    // 주의: source.start()를 호출하면 즉시 재생되므로 제거!
+    // Howl이 나중에 재생할 것이므로 여기서는 데이터만 반환
+    
     // Blob URL 생성 (실제로는 사용하지 않지만 Howl이 요구함)
     return 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU5k9n1unEiBC13yO/eizEIHWq+8+OWTgwOUarm7blmGgU0';
   }
@@ -202,16 +231,17 @@ export class SoundSystem {
     if (sound) {
       try {
         // 배경음악 특별 처리 (최적화)
-        if (soundName === 'background') {
+        if (soundName === 'background' || soundName === 'titleBgm') {
           // 이미 재생 중이면 스킵 (중복 방지)
           if (sound.playing()) {
-            console.log('배경음악 이미 재생 중');
+            console.log(`${soundName} 이미 재생 중`);
             return;
           }
           // 배경음은 낮은 볼륨으로 재생
-          sound.volume(this.isMuted ? 0 : 0.15);
+          const bgVolume = soundName === 'titleBgm' ? 0.2 : 0.15;
+          sound.volume(this.isMuted ? 0 : bgVolume);
           sound.play();
-          console.log('배경음악 재생 시작');
+          console.log(`${soundName} 재생 시작`);
           return;
         }
         

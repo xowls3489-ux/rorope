@@ -23,6 +23,14 @@ export class UIManager {
     private scoreBox!: PIXI.Container;
     private comboBox!: PIXI.Container;
     private retryButton!: PIXI.Container;
+    
+    // 일시정지 UI 요소들
+    private pauseButton!: PIXI.Container;
+    private pausePanel!: PIXI.Container;
+    private pauseOverlay!: PIXI.Graphics;
+    private onPauseCallback?: () => void;
+    private onResumeCallback?: () => void;
+    private onSoundToggleCallback?: (enabled: boolean) => void;
 
     constructor(stage: PIXI.Container) {
         this.stage = stage;
@@ -68,6 +76,9 @@ export class UIManager {
         
         // 새로운 게임오버 UI 초기화
         this.initGameOverUI();
+        
+        // 일시정지 UI 초기화
+        this.initPauseUI();
     }
     
     private initGameOverUI(): void {
@@ -195,6 +206,8 @@ export class UIManager {
     public onGameStart(): void {
         this.gameOverText.visible = false;
         this.gameOverContainer.visible = false;
+        this.pauseButton.visible = true; // 일시정지 버튼 표시
+        this.pausePanel.visible = false; // 일시정지 패널 숨김
         animationSystem.fadeInUI(this.scoreText);
     }
 
@@ -325,6 +338,8 @@ export class UIManager {
         this.retryButton.y = btnY;
         
         this.gameOverContainer.visible = true;
+        this.pauseButton.visible = false; // 게임오버 시 일시정지 버튼 숨김
+        this.pausePanel.visible = false; // 일시정지 패널도 숨김
         animationSystem.gameOverAnimation(this.gameOverTitle);
     }
     
@@ -447,6 +462,187 @@ export class UIManager {
 
     public getGameOverText(): PIXI.Text {
         return this.gameOverText;
+    }
+    
+    // 일시정지 UI 초기화
+    private initPauseUI(): void {
+        // 일시정지 버튼 (우측 상단)
+        this.pauseButton = new PIXI.Container();
+        this.pauseButton.x = GAME_CONFIG.width - 70;
+        this.pauseButton.y = 20;
+        
+        const pauseBtnBg = new PIXI.Graphics();
+        pauseBtnBg.lineStyle(2, 0xFFFFFF, 1);
+        pauseBtnBg.beginFill(0x000000, 0.5);
+        pauseBtnBg.drawRoundedRect(0, 0, 50, 50, 10);
+        pauseBtnBg.endFill();
+        
+        // 일시정지 아이콘 (두 개의 막대)
+        const pauseIcon = new PIXI.Graphics();
+        pauseIcon.beginFill(0xFFFFFF);
+        pauseIcon.drawRect(15, 15, 6, 20);
+        pauseIcon.drawRect(29, 15, 6, 20);
+        pauseIcon.endFill();
+        
+        this.pauseButton.addChild(pauseBtnBg);
+        this.pauseButton.addChild(pauseIcon);
+        this.pauseButton.interactive = true;
+        this.pauseButton.cursor = 'pointer';
+        this.pauseButton.on('pointerdown', () => {
+            if (this.onPauseCallback) {
+                this.onPauseCallback();
+            }
+        });
+        
+        this.stage.addChild(this.pauseButton);
+        
+        // 일시정지 패널
+        this.pausePanel = new PIXI.Container();
+        this.pausePanel.visible = false;
+        
+        // 반투명 오버레이
+        this.pauseOverlay = new PIXI.Graphics();
+        this.pauseOverlay.beginFill(0x000000, 0.85);
+        this.pauseOverlay.drawRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+        this.pauseOverlay.endFill();
+        this.pausePanel.addChild(this.pauseOverlay);
+        
+        // 패널 배경
+        const panelWidth = Math.min(380, GAME_CONFIG.width - 80);
+        const panelHeight = 320;
+        const panelX = GAME_CONFIG.width / 2 - panelWidth / 2;
+        const panelY = GAME_CONFIG.height / 2 - panelHeight / 2;
+        
+        const panelBg = new PIXI.Graphics();
+        panelBg.lineStyle(2, 0x444444, 1);
+        panelBg.beginFill(0x1a1a1a, 0.95);
+        panelBg.drawRoundedRect(panelX, panelY, panelWidth, panelHeight, 20);
+        panelBg.endFill();
+        this.pausePanel.addChild(panelBg);
+        
+        // PAUSED 타이틀
+        const pauseTitle = new PIXI.Text('PAUSED', {
+            fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
+            fontSize: 42,
+            fill: 0xFFFFFF,
+            align: 'center',
+            fontWeight: 'bold',
+        });
+        pauseTitle.anchor.set(0.5, 0);
+        pauseTitle.x = GAME_CONFIG.width / 2;
+        pauseTitle.y = panelY + 30;
+        this.pausePanel.addChild(pauseTitle);
+        
+        // 사운드 토글 버튼
+        const soundToggleBtn = new PIXI.Container();
+        const btnWidth = panelWidth - 40;
+        const btnHeight = 60;
+        const btnX = panelX + 20;
+        let btnY = panelY + 100;
+        
+        const soundBtnBg = new PIXI.Graphics();
+        soundBtnBg.lineStyle(2, 0x666666, 1);
+        soundBtnBg.beginFill(0x2a2a2a, 1);
+        soundBtnBg.drawRoundedRect(0, 0, btnWidth, btnHeight, 12);
+        soundBtnBg.endFill();
+        
+        const soundBtnText = new PIXI.Text('🔊 SOUND: ON', {
+            fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
+            fontSize: 20,
+            fill: 0xFFFFFF,
+            align: 'center',
+            fontWeight: 'bold',
+        });
+        soundBtnText.anchor.set(0.5, 0.5);
+        soundBtnText.x = btnWidth / 2;
+        soundBtnText.y = btnHeight / 2;
+        
+        soundToggleBtn.addChild(soundBtnBg);
+        soundToggleBtn.addChild(soundBtnText);
+        soundToggleBtn.x = btnX;
+        soundToggleBtn.y = btnY;
+        soundToggleBtn.interactive = true;
+        soundToggleBtn.cursor = 'pointer';
+        
+        // 사운드 토글 클릭 이벤트
+        soundToggleBtn.on('pointerdown', () => {
+            const currentMuted = localStorage.getItem('soundMuted') === 'true';
+            const newMuted = !currentMuted;
+            
+            if (this.onSoundToggleCallback) {
+                this.onSoundToggleCallback(!newMuted); // enabled = !muted
+            }
+            
+            // 버튼 텍스트 업데이트
+            soundBtnText.text = newMuted ? '🔇 SOUND: OFF' : '🔊 SOUND: ON';
+        });
+        
+        this.pausePanel.addChild(soundToggleBtn);
+        
+        // Resume 버튼
+        btnY += btnHeight + 20;
+        const resumeBtn = new PIXI.Container();
+        
+        const resumeBtnBg = new PIXI.Graphics();
+        resumeBtnBg.lineStyle(2, 0xFFFFFF, 1);
+        resumeBtnBg.beginFill(0x333333, 1);
+        resumeBtnBg.drawRoundedRect(0, 0, btnWidth, btnHeight, 12);
+        resumeBtnBg.endFill();
+        
+        const resumeBtnText = new PIXI.Text('▶ RESUME', {
+            fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
+            fontSize: 24,
+            fill: 0xFFFFFF,
+            align: 'center',
+            fontWeight: 'bold',
+        });
+        resumeBtnText.anchor.set(0.5, 0.5);
+        resumeBtnText.x = btnWidth / 2;
+        resumeBtnText.y = btnHeight / 2;
+        
+        resumeBtn.addChild(resumeBtnBg);
+        resumeBtn.addChild(resumeBtnText);
+        resumeBtn.x = btnX;
+        resumeBtn.y = btnY;
+        resumeBtn.interactive = true;
+        resumeBtn.cursor = 'pointer';
+        resumeBtn.on('pointerdown', () => {
+            if (this.onResumeCallback) {
+                this.onResumeCallback();
+            }
+        });
+        
+        this.pausePanel.addChild(resumeBtn);
+        
+        this.stage.addChild(this.pausePanel);
+    }
+    
+    // 일시정지 콜백 설정
+    public setPauseCallbacks(
+        onPause: () => void,
+        onResume: () => void,
+        onSoundToggle: (enabled: boolean) => void
+    ): void {
+        this.onPauseCallback = onPause;
+        this.onResumeCallback = onResume;
+        this.onSoundToggleCallback = onSoundToggle;
+    }
+    
+    // 일시정지 패널 표시
+    public showPausePanel(): void {
+        this.pausePanel.visible = true;
+        this.pauseButton.visible = false;
+    }
+    
+    // 일시정지 패널 숨기기
+    public hidePausePanel(): void {
+        this.pausePanel.visible = false;
+        this.pauseButton.visible = true;
+    }
+    
+    // 일시정지 버튼 표시/숨기기
+    public setPauseButtonVisible(visible: boolean): void {
+        this.pauseButton.visible = visible;
     }
 }
 
