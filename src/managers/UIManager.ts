@@ -231,9 +231,11 @@ export class UIManager {
         this.gameOverOverlay.drawRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
         this.gameOverOverlay.endFill();
         
-        // 메인 카드 배경 (둥근 사각형)
+        // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
         const cardWidth = Math.min(400, GAME_CONFIG.width - 80);
-        const cardHeight = 420;
+        const cardHeightBase = isNewRecord ? 420 : 380; // 신기록 시 더 높게
+        const cardHeight = Math.min(cardHeightBase, GAME_CONFIG.height - 100); // 화면 높이 고려
+        
         this.gameOverBg.clear();
         this.gameOverBg.lineStyle(2, 0x444444, 1);
         this.gameOverBg.beginFill(0x1a1a1a, 0.95);
@@ -246,23 +248,32 @@ export class UIManager {
         );
         this.gameOverBg.endFill();
         
-        // 타이틀 위치
+        // 타이틀 위치 (동적 조정)
+        const titleOffsetY = Math.min(160, cardHeight / 2 - 30);
         this.gameOverTitle.x = centerX;
-        this.gameOverTitle.y = centerY - 160;
+        this.gameOverTitle.y = centerY - titleOffsetY;
         
-        let yOffset = centerY - 80;
+        // 타이틀 폰트 크기도 모바일에서 작게
+        const isMobile = GAME_CONFIG.height < 800;
+        this.gameOverTitle.style.fontSize = isMobile ? 32 : 48;
+        
+        // yOffset 동적 조정
+        let yOffset = centerY - Math.min(80, cardHeight / 2 - 60);
         
         // 신기록 배지
         this.newRecordBadge.removeChildren();
         if (isNewRecord) {
+            const badgeWidth = isMobile ? 140 : 160;
+            const badgeHeight = isMobile ? 35 : 40;
+            
             const badgeBg = new PIXI.Graphics();
             badgeBg.beginFill(0xFFD700, 1);
-            badgeBg.drawRoundedRect(-80, -20, 160, 40, 20);
+            badgeBg.drawRoundedRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 20);
             badgeBg.endFill();
             
             const badgeText = new PIXI.Text('✨ NEW RECORD ✨', {
                 fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-                fontSize: 18,
+                fontSize: isMobile ? 14 : 18,
                 fill: 0x000000,
                 align: 'center',
                 fontWeight: 'bold',
@@ -275,7 +286,7 @@ export class UIManager {
             this.newRecordBadge.y = yOffset;
             this.newRecordBadge.visible = true;
             
-            yOffset += 50;
+            yOffset += isMobile ? 40 : 50;
         } else {
             this.newRecordBadge.visible = false;
         }
@@ -308,12 +319,13 @@ export class UIManager {
             roundMaxCombo > maxCombo
         );
         
-        // 재시도 버튼
+        // 재시도 버튼 (모바일 대응)
         this.retryButton.removeChildren();
         const btnWidth = cardWidth - 40;
-        const btnHeight = 60;
+        const btnHeight = isMobile ? 50 : 60;
         const btnX = centerX - btnWidth / 2;
-        const btnY = centerY + cardHeight / 2 - btnHeight - 20;
+        const btnBottomMargin = isMobile ? 15 : 20;
+        const btnY = centerY + cardHeight / 2 - btnHeight - btnBottomMargin;
         
         const btnBg = new PIXI.Graphics();
         btnBg.lineStyle(2, 0xFFFFFF, 1);
@@ -323,7 +335,7 @@ export class UIManager {
         
         const btnText = new PIXI.Text('TAP TO RETRY', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 24,
+            fontSize: isMobile ? 20 : 24,
             fill: 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
@@ -354,49 +366,53 @@ export class UIManager {
         width: number,
         isNew: boolean
     ): void {
+        // 모바일 대응
+        const isMobile = GAME_CONFIG.height < 800;
+        const boxHeight = isMobile ? 100 : 120;
+        
         // 박스 배경
         const bg = new PIXI.Graphics();
         bg.lineStyle(2, isNew ? 0xFFD700 : 0x666666, 1);
         bg.beginFill(0x2a2a2a, 1);
-        bg.drawRoundedRect(0, 0, width, 120, 10);
+        bg.drawRoundedRect(0, 0, width, boxHeight, 10);
         bg.endFill();
         container.addChild(bg);
         
         // 라벨
         const labelText = new PIXI.Text(label, {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 14,
+            fontSize: isMobile ? 12 : 14,
             fill: 0x999999,
             align: 'center',
         });
         labelText.anchor.set(0.5, 0);
         labelText.x = width / 2;
-        labelText.y = 10;
+        labelText.y = isMobile ? 8 : 10;
         container.addChild(labelText);
         
         // 현재 값
         const currentText = new PIXI.Text(`${current}${unit}`, {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 32,
+            fontSize: isMobile ? 28 : 32,
             fill: isNew ? 0xFFD700 : 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
         });
         currentText.anchor.set(0.5, 0);
         currentText.x = width / 2;
-        currentText.y = 35;
+        currentText.y = isMobile ? 28 : 35;
         container.addChild(currentText);
         
         // 최고 기록
         const bestText = new PIXI.Text(`Best: ${best}${unit}`, {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 14,
+            fontSize: isMobile ? 12 : 14,
             fill: 0x888888,
             align: 'center',
         });
         bestText.anchor.set(0.5, 0);
         bestText.x = width / 2;
-        bestText.y = 85;
+        bestText.y = isMobile ? 70 : 85;
         container.addChild(bestText);
         
         container.x = x;
