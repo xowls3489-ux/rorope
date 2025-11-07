@@ -49,6 +49,9 @@ export class UIManager {
         this.scoreText.x = 20;
         this.scoreText.y = 20;
         this.scoreText.anchor.set(0, 0);
+        // 점수 텍스트도 클릭 이벤트를 막지 않도록 설정
+        (this.scoreText as any).eventMode = 'none';
+        this.scoreText.interactive = false;
         this.stage.addChild(this.scoreText);
 
         // 콤보 텍스트
@@ -63,6 +66,9 @@ export class UIManager {
         this.comboText.y = 70;
         this.comboText.anchor.set(0.5, 0.5);
         this.comboText.visible = false;
+        // 콤보 텍스트가 클릭 이벤트를 막지 않도록 설정 (중요!)
+        (this.comboText as any).eventMode = 'none';
+        this.comboText.interactive = false;
         this.stage.addChild(this.comboText);
 
         // 게임오버 UI (레거시 호환용)
