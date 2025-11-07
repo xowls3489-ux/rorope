@@ -23,6 +23,7 @@ interface PlatformGraphics extends PIXI.Graphics {
     moveDirection?: number;
     initialX?: number;
     initialY?: number;
+    comboGiven?: boolean; // 이미 콤보를 부여했는지 여부
 }
 
 /**
@@ -433,6 +434,7 @@ export class GameScene {
         targetPlatform.landed = false;
         targetPlatform.isMoving = false;
         targetPlatform.moveType = undefined;
+        targetPlatform.comboGiven = false; // 콤보 초기화
         (targetPlatform as any).inUse = true;
 
         gameActions.addPlatform(targetPlatform);
@@ -478,6 +480,7 @@ export class GameScene {
         targetPlatform.moveRange = moveRange;
         targetPlatform.moveDirection = 1;
         targetPlatform.initialX = x;
+        targetPlatform.comboGiven = false; // 콤보 초기화
         (targetPlatform as any).inUse = true;
 
         gameActions.addPlatform(targetPlatform);
@@ -523,6 +526,7 @@ export class GameScene {
         targetPlatform.moveRange = moveRange;
         targetPlatform.moveDirection = 1;
         targetPlatform.initialY = y;
+        targetPlatform.comboGiven = false; // 콤보 초기화
         (targetPlatform as any).inUse = true;
 
         gameActions.addPlatform(targetPlatform);
@@ -607,6 +611,7 @@ export class GameScene {
         targetPlatform.landed = false;
         targetPlatform.isMoving = false;
         targetPlatform.moveType = undefined;
+        targetPlatform.comboGiven = false; // 콤보 초기화
         (targetPlatform as any).inUse = true;
 
         gameActions.addPlatform(targetPlatform);

@@ -54,9 +54,10 @@ export class RopeSystem {
 
         const currentPlatforms = platforms.get();
         let hitPoint: { x: number; y: number } | null = null;
+        let hitPlatform: any = null; // 히트한 플랫폼 추적
 
         for (const platform of currentPlatforms) {
-            const pg = platform as PIXI.Graphics & { width: number };
+            const pg = platform as PIXI.Graphics & { width: number; comboGiven?: boolean };
             const left = platform.x;
             const right = platform.x + pg.width;
             const top = platform.y;
@@ -69,6 +70,7 @@ export class RopeSystem {
                     const ix = prevX + (nextX - prevX) * t;
                     if (ix >= left && ix <= right) {
                         hitPoint = { x: ix, y: top };
+                        hitPlatform = pg; // 히트한 플랫폼 저장
                         break;
                     }
                 }
@@ -79,12 +81,13 @@ export class RopeSystem {
                 const tipY = nextY;
                 if (tipX >= left && tipX <= right && tipY >= top && tipY <= bottom) {
                     hitPoint = { x: Math.min(Math.max(tipX, left), right), y: top };
+                    hitPlatform = pg; // 히트한 플랫폼 저장
                     break;
                 }
             }
         }
 
-        if (hitPoint) {
+        if (hitPoint && hitPlatform) {
             const anchorX = hitPoint.x;
             const anchorY = hitPoint.y;
             const length = Math.hypot(playerPos.x - anchorX, playerPos.y - anchorY);
@@ -93,20 +96,33 @@ export class RopeSystem {
             // 플랫폼 히트 사운드 재생
             soundSystem.play('hit');
             
-            // 로프 성공적으로 연결됨 → 콤보 증가!
-            gameActions.addCombo();
-            const game = gameState.get();
-            const newCombo = game.combo || 0;
-            
-            // 콤보 사운드 재생 (10의 배수일 때 특별 사운드)
-            if (newCombo % 10 === 0 && newCombo > 0) {
-                // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
-                soundSystem.play('babat10');
-                console.log(`🎉 ${newCombo} 콤보! 바밧~`);
+            // 콤보 증가 (같은 플랫폼에는 1번만!)
+            let shouldGiveCombo = false;
+            if (!hitPlatform.comboGiven) {
+                // 이 플랫폼에서 처음 콤보를 얻음
+                hitPlatform.comboGiven = true;
+                gameActions.addCombo();
+                shouldGiveCombo = true;
+                
+                const game = gameState.get();
+                const newCombo = game.combo || 0;
+                
+                // 콤보 사운드 재생 (10의 배수일 때 특별 사운드)
+                if (newCombo % 10 === 0 && newCombo > 0) {
+                    // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
+                    soundSystem.play('babat10');
+                    console.log(`🎉 ${newCombo} 콤보! 바밧~`);
+                } else {
+                    // 일반 콤보 증가 사운드
+                    soundSystem.play('comboUp');
+                }
             } else {
-                // 일반 콤보 증가 사운드
-                soundSystem.play('comboUp');
+                // 이미 콤보를 받은 플랫폼
+                console.log('이미 콤보를 받은 플랫폼 - 콤보 증가 없음');
             }
+            
+            const game = gameState.get();
+            const currentCombo = game.combo || 0;
             
             // 풀링 시작 시 속도를 0으로 리셋 (안전)
             // 풀링 로직이 속도를 올바르게 계산할 것임
@@ -117,9 +133,11 @@ export class RopeSystem {
             vfxSystem.drawRopeAttachLine(playerPos.x, playerPos.y, anchorX, anchorY);
             vfxSystem.spawnRopeHitFlash(anchorX, anchorY);
             
-            // 콤보 VFX 효과
-            vfxSystem.spawnComboParticleBurst(playerPos.x, playerPos.y, newCombo);
-            vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, newCombo);
+            // 콤보 VFX 효과 (콤보를 받았을 때만)
+            if (shouldGiveCombo) {
+                vfxSystem.spawnComboParticleBurst(playerPos.x, playerPos.y, currentCombo);
+                vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, currentCombo);
+            }
             
             return;
         }
