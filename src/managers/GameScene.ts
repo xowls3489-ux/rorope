@@ -895,26 +895,28 @@ export class GameScene {
         const worldX = 0;
 
         const viewH = GAME_CONFIG.height;
-        const deadZoneY = GAME_CONFIG.cameraDeadZoneY; // config에서 가져오기
+        const deadZoneY = GAME_CONFIG.cameraDeadZoneY; // 월드 좌표 기준 데드존
         const currentWorldY = this.world.y || 0;
+        
+        // 카메라가 추적하는 목표 Y 위치 (월드 좌표)
+        // 화면 중앙에 플레이어를 배치하기 위한 목표 world.y 값
+        const idealCameraY = -(playerPos.y - viewH / 2);
+        
+        // 현재 카메라 위치와 이상적인 위치의 차이 (월드 좌표 기준)
+        const cameraOffset = idealCameraY - currentWorldY;
+        
         let targetWorldY = currentWorldY;
-        const playerScreenY = playerPos.y + currentWorldY;
-        const topBound = viewH / 2 - deadZoneY;
-        const bottomBound = viewH / 2 + deadZoneY;
-
-        if (playerScreenY < topBound) {
-            const offset = topBound - playerScreenY;
-            targetWorldY += offset;
-        } else if (playerScreenY > bottomBound) {
-            const offset = playerScreenY - bottomBound;
-            if (playerScreenY > viewH + 50) {
-                targetWorldY = currentWorldY;
-            } else {
-                targetWorldY -= offset;
-            }
+        
+        // 데드존을 월드 좌표 기준으로 체크
+        if (cameraOffset > deadZoneY) {
+            // 플레이어가 화면 아래로 멀어짐 → 카메라 아래로
+            targetWorldY = idealCameraY - deadZoneY;
+        } else if (cameraOffset < -deadZoneY) {
+            // 플레이어가 화면 위로 멀어짐 → 카메라 위로
+            targetWorldY = idealCameraY + deadZoneY;
         }
 
-        const cameraSpeedY = GAME_CONFIG.cameraSpeedY; // config에서 가져오기
+        const cameraSpeedY = GAME_CONFIG.cameraSpeedY;
         const newWorldY = currentWorldY + (targetWorldY - currentWorldY) * cameraSpeedY;
 
         this.world.x = worldX;
