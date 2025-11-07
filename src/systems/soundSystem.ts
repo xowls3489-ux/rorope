@@ -74,7 +74,7 @@ export class SoundSystem {
   private initSounds(): void {
     // 로프 발사 사운드 (swing.wav)
     const ropeShootSound = new Howl({
-      src: ['/src/sounds/sfx/swing.wav'],
+      src: ['/sounds/sfx/swing.wav'],
       volume: 0.4,
       preload: true,
       html5: false,
@@ -82,7 +82,7 @@ export class SoundSystem {
 
     // 플랫폼 히트 사운드 (hit.wav)
     const hitSound = new Howl({
-      src: ['/src/sounds/sfx/hit.wav'],
+      src: ['/sounds/sfx/hit.wav'],
       volume: 0.5,
       preload: true,
       html5: false,
@@ -90,7 +90,7 @@ export class SoundSystem {
     
     // 콤보 증가 사운드 (comboup.wav)
     const comboUpSound = new Howl({
-      src: ['/src/sounds/sfx/comboup.wav'],
+      src: ['/sounds/sfx/comboup.wav'],
       volume: 0.4,
       preload: true,
       html5: false,
@@ -98,7 +98,7 @@ export class SoundSystem {
     
     // 10콤보 특별 사운드 (바밧~ 소리)
     const babat10ComboSound = new Howl({
-      src: ['/src/sounds/sfx/babat.wav'],
+      src: ['/sounds/sfx/babat.wav'],
       volume: 0.6,
       preload: true,
       html5: false,
@@ -145,7 +145,7 @@ export class SoundSystem {
 
     // 게임 배경음악
     const backgroundMusic = new Howl({
-      src: ['/src/sounds/bgm/loopbgm.wav'],
+      src: ['/sounds/bgm/loopbgm.wav'],
       volume: 0.15,
       loop: true,
       preload: true,
@@ -161,7 +161,7 @@ export class SoundSystem {
     
     // 타이틀 배경음악
     const titleMusic = new Howl({
-      src: ['/src/sounds/bgm/titlebgm.mp3'],
+      src: ['/sounds/bgm/titlebgm.mp3'],
       volume: 0.2,
       loop: true,
       preload: true,
