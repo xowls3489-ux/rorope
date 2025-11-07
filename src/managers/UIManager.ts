@@ -669,5 +669,13 @@ export class UIManager {
     public setPauseButtonVisible(visible: boolean): void {
         this.pauseButton.visible = visible;
     }
+    
+    // pauseButton과 pausePanel을 맨 위로 올리기 (world보다 위에)
+    public bringPauseUIToFront(): void {
+        this.stage.removeChild(this.pauseButton);
+        this.stage.removeChild(this.pausePanel);
+        this.stage.addChild(this.pauseButton);
+        this.stage.addChild(this.pausePanel);
+    }
 }
 

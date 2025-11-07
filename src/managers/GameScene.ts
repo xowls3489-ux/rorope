@@ -119,6 +119,9 @@ export class GameScene {
         this.world.interactive = true;
         this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
         
+        // pauseButton과 pausePanel을 world 위로 올리기 (클릭 가능하도록)
+        this.uiManager.bringPauseUIToFront();
+        
         // 사운드 설정 확인 및 적용
         const savedMuted = localStorage.getItem('soundMuted');
         if (savedMuted !== null) {
