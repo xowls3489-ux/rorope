@@ -49,9 +49,11 @@ export class UIManager {
         this.scoreText.x = 20;
         this.scoreText.y = 20;
         this.scoreText.anchor.set(0, 0);
-        // 점수 텍스트도 클릭 이벤트를 막지 않도록 설정
+        // 점수 텍스트도 클릭 이벤트를 절대 막지 않도록 확실히 설정!
         (this.scoreText as any).eventMode = 'none';
         this.scoreText.interactive = false;
+        this.scoreText.interactiveChildren = false;
+        (this.scoreText as any).hitArea = null;
         this.stage.addChild(this.scoreText);
 
         // 콤보 텍스트
@@ -66,9 +68,11 @@ export class UIManager {
         this.comboText.y = 70;
         this.comboText.anchor.set(0.5, 0.5);
         this.comboText.visible = false;
-        // 콤보 텍스트가 클릭 이벤트를 막지 않도록 설정 (중요!)
+        // 콤보 텍스트가 클릭 이벤트를 절대 막지 않도록 확실히 설정!
         (this.comboText as any).eventMode = 'none';
         this.comboText.interactive = false;
+        this.comboText.interactiveChildren = false;
+        (this.comboText as any).hitArea = null;
         this.stage.addChild(this.comboText);
 
         // 게임오버 UI (레거시 호환용)
@@ -229,7 +233,11 @@ export class UIManager {
         const isNewRecord = game.isNewRecord;
 
         const centerX = GAME_CONFIG.width / 2;
-        const centerY = GAME_CONFIG.height / 2;
+        // 모바일에서는 게임오버 패널을 더 아래로 (하단 중심)
+        const isMobile = GAME_CONFIG.height < 800;
+        const centerY = isMobile 
+            ? GAME_CONFIG.height - 220  // 하단에서 220px 위
+            : GAME_CONFIG.height / 2;    // 데스크톱은 중앙
         
         // 오버레이 크기 조정
         this.gameOverOverlay.clear();
@@ -260,7 +268,6 @@ export class UIManager {
         this.gameOverTitle.y = centerY - titleOffsetY;
         
         // 타이틀 폰트 크기도 모바일에서 작게
-        const isMobile = GAME_CONFIG.height < 800;
         this.gameOverTitle.style.fontSize = isMobile ? 32 : 48;
         
         // yOffset 동적 조정
