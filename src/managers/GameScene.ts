@@ -107,16 +107,17 @@ export class GameScene {
         // fxLayer를 bgLayer 다음에 추가 (world보다 뒤에)
         this.fxLayer = vfxSystem.initialize(this.stage);
 
+        // UI 매니저를 먼저 초기화 (uiLayer가 먼저 추가됨)
+        this.uiManager = new UIManager(this.stage);
+        this.audioManager = new AudioManager();
+
+        // world를 uiLayer 위에 추가 (클릭 이벤트를 받을 수 있도록)
         this.world = new PIXI.Container();
         this.world.name = 'world';
         this.stage.addChild(this.world);
         (this.world as any).eventMode = 'static';
         this.world.interactive = true;
         this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
-
-        // 매니저 초기화
-        this.uiManager = new UIManager(this.stage);
-        this.audioManager = new AudioManager();
         
         // 사운드 설정 확인 및 적용
         const savedMuted = localStorage.getItem('soundMuted');

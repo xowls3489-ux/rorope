@@ -9,6 +9,7 @@ import { animationSystem } from '../systems/animationSystem';
  */
 export class UIManager {
     private stage: PIXI.Container;
+    private uiLayer!: PIXI.Container; // UI 전용 레이어 (클릭 이벤트 완전 차단)
     private scoreText!: PIXI.Text;
     private comboText!: PIXI.Text;
     private gameOverText!: PIXI.Text;
@@ -39,6 +40,14 @@ export class UIManager {
     }
 
     private init(): void {
+        // UI 전용 레이어 생성 (클릭 이벤트 완전 차단!)
+        this.uiLayer = new PIXI.Container();
+        this.uiLayer.name = 'uiLayer';
+        (this.uiLayer as any).eventMode = 'none';
+        this.uiLayer.interactive = false;
+        this.uiLayer.interactiveChildren = false;
+        this.stage.addChild(this.uiLayer);
+        
         // 점수 텍스트
         this.scoreText = new PIXI.Text('0 m', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
@@ -49,12 +58,7 @@ export class UIManager {
         this.scoreText.x = 20;
         this.scoreText.y = 20;
         this.scoreText.anchor.set(0, 0);
-        // 점수 텍스트도 클릭 이벤트를 절대 막지 않도록 확실히 설정!
-        (this.scoreText as any).eventMode = 'none';
-        this.scoreText.interactive = false;
-        this.scoreText.interactiveChildren = false;
-        (this.scoreText as any).hitArea = null;
-        this.stage.addChild(this.scoreText);
+        this.uiLayer.addChild(this.scoreText);
 
         // 콤보 텍스트
         this.comboText = new PIXI.Text('', {
@@ -68,12 +72,7 @@ export class UIManager {
         this.comboText.y = 70;
         this.comboText.anchor.set(0.5, 0.5);
         this.comboText.visible = false;
-        // 콤보 텍스트가 클릭 이벤트를 절대 막지 않도록 확실히 설정!
-        (this.comboText as any).eventMode = 'none';
-        this.comboText.interactive = false;
-        this.comboText.interactiveChildren = false;
-        (this.comboText as any).hitArea = null;
-        this.stage.addChild(this.comboText);
+        this.uiLayer.addChild(this.comboText);
 
         // 게임오버 UI (레거시 호환용)
         this.gameOverText = new PIXI.Text('', {
