@@ -243,8 +243,18 @@ export class UIManager {
         
         // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
         const cardWidth = Math.min(400, GAME_CONFIG.width - 80);
-        const cardHeightBase = isNewRecord ? 420 : 380; // 신기록 시 더 높게
-        const cardHeight = Math.min(cardHeightBase, GAME_CONFIG.height - 100); // 화면 높이 고려
+        // 신기록 여부와 모바일 여부에 따라 높이 조정
+        let cardHeightBase: number;
+        if (isNewRecord && isMobile) {
+            cardHeightBase = 440; // 모바일 + 신기록: 더 여유있게
+        } else if (isNewRecord) {
+            cardHeightBase = 420; // 데스크톱 + 신기록
+        } else if (isMobile) {
+            cardHeightBase = 360; // 모바일 기본
+        } else {
+            cardHeightBase = 380; // 데스크톱 기본
+        }
+        const cardHeight = Math.min(cardHeightBase, GAME_CONFIG.height - 80); // 여유 공간 확대 (100 → 80)
         
         this.gameOverBg.clear();
         this.gameOverBg.lineStyle(2, 0x444444, 1);
@@ -295,7 +305,7 @@ export class UIManager {
             this.newRecordBadge.y = yOffset;
             this.newRecordBadge.visible = true;
             
-            yOffset += isMobile ? 40 : 50;
+            yOffset += isMobile ? 48 : 50; // 모바일에서 간격 약간 확대
         } else {
             this.newRecordBadge.visible = false;
         }
@@ -333,7 +343,7 @@ export class UIManager {
         const btnWidth = cardWidth - 40;
         const btnHeight = isMobile ? 50 : 60;
         const btnX = centerX - btnWidth / 2;
-        const btnBottomMargin = isMobile ? 15 : 20;
+        const btnBottomMargin = isMobile ? 20 : 20; // 모바일 하단 마진 약간 확대
         const btnY = centerY + cardHeight / 2 - btnHeight - btnBottomMargin;
         
         const btnBg = new PIXI.Graphics();
@@ -377,7 +387,7 @@ export class UIManager {
     ): void {
         // 모바일 대응
         const isMobile = GAME_CONFIG.height < 800;
-        const boxHeight = isMobile ? 100 : 120;
+        const boxHeight = isMobile ? 95 : 120; // 모바일에서 약간 줄임
         
         // 박스 배경
         const bg = new PIXI.Graphics();
@@ -402,14 +412,14 @@ export class UIManager {
         // 현재 값
         const currentText = new PIXI.Text(`${current}${unit}`, {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: isMobile ? 28 : 32,
+            fontSize: isMobile ? 26 : 32, // 모바일에서 폰트 약간 줄임
             fill: isNew ? 0xFFD700 : 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
         });
         currentText.anchor.set(0.5, 0);
         currentText.x = width / 2;
-        currentText.y = isMobile ? 28 : 35;
+        currentText.y = isMobile ? 30 : 35;
         container.addChild(currentText);
         
         // 최고 기록
@@ -421,7 +431,7 @@ export class UIManager {
         });
         bestText.anchor.set(0.5, 0);
         bestText.x = width / 2;
-        bestText.y = isMobile ? 70 : 85;
+        bestText.y = isMobile ? 67 : 85; // 모바일에서 위치 조정
         container.addChild(bestText);
         
         container.x = x;
