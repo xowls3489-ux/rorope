@@ -233,11 +233,8 @@ export class UIManager {
         const isNewRecord = game.isNewRecord;
 
         const centerX = GAME_CONFIG.width / 2;
-        // 모바일에서는 게임오버 패널을 더 아래로 (하단 중심)
+        const centerY = GAME_CONFIG.height / 2; // 항상 중앙
         const isMobile = GAME_CONFIG.height < 800;
-        const centerY = isMobile 
-            ? GAME_CONFIG.height - 220  // 하단에서 220px 위
-            : GAME_CONFIG.height / 2;    // 데스크톱은 중앙
         
         // 오버레이 크기 조정
         this.gameOverOverlay.clear();
