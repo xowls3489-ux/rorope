@@ -1,4 +1,5 @@
 import * as PIXI from 'pixi.js';
+import { getSafeAreaInsets as fetchSafeAreaInsets } from '@apps-in-toss/web-framework';
 import { gameState } from '../stores/gameStore';
 import { GAME_CONFIG, COLORS } from '../core/config';
 import { animationSystem } from '../systems/animationSystem';
@@ -42,9 +43,11 @@ export class UIManager {
     private onPauseCallback?: () => void;
     private onResumeCallback?: () => void;
     private onSoundToggleCallback?: (enabled: boolean) => void;
+    private cachedSafeArea = { top: 0, right: 0, bottom: 0, left: 0 };
 
     constructor(stage: PIXI.Container) {
         this.stage = stage;
+        this.cachedSafeArea = this.readSafeArea();
         this.init();
         this.setupResizeHandler();
     }
@@ -151,6 +154,7 @@ export class UIManager {
 
     private setupResizeHandler(): void {
         const handleResize = () => {
+            this.cachedSafeArea = this.readSafeArea();
             this.refreshUILayout();
         };
 
@@ -239,7 +243,7 @@ export class UIManager {
         // 오버레이 크기 조정
         this.gameOverOverlay.clear();
         this.gameOverOverlay.beginFill(0x000000, 0.85);
-        this.gameOverOverlay.drawRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
+        this.gameOverOverlay.drawRect(0, top, GAME_CONFIG.width, Math.max(0, GAME_CONFIG.height - top - bottom));
         this.gameOverOverlay.endFill();
         
         // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
@@ -654,7 +658,21 @@ export class UIManager {
         this.stage.addChild(this.pausePanel);
     }
 
-    private getSafeAreaInsets(): { top: number; right: number; bottom: number; left: number } {
+    private readSafeArea(): { top: number; right: number; bottom: number; left: number } {
+        try {
+            const insets = fetchSafeAreaInsets();
+            if (insets) {
+                return {
+                    top: insets.top ?? 0,
+                    right: insets.right ?? 0,
+                    bottom: insets.bottom ?? 0,
+                    left: insets.left ?? 0,
+                };
+            }
+        } catch (error) {
+            console.warn('Failed to get safe-area insets from Toss bridge', error);
+        }
+
         const styles = window.getComputedStyle(document.documentElement);
         const cssTop = parseFloat(styles.getPropertyValue('--safe-area-inset-top') || '0') || 0;
         const cssRight = parseFloat(styles.getPropertyValue('--safe-area-inset-right') || '0') || 0;
@@ -664,7 +682,8 @@ export class UIManager {
     }
 
     private getEffectiveInsets(): { top: number; right: number; bottom: number; left: number } {
-        const raw = this.getSafeAreaInsets();
+        const raw = this.readSafeArea();
+        this.cachedSafeArea = raw;
         const viewport = window.visualViewport;
         const viewportTop = viewport ? viewport.offsetTop : 0;
         const viewportLeft = viewport ? viewport.offsetLeft : 0;
@@ -710,7 +729,7 @@ export class UIManager {
         if (this.pauseOverlay) {
             this.pauseOverlay.clear();
             this.pauseOverlay.beginFill(0x000000, 0.85);
-            this.pauseOverlay.drawRect(0, 0, width, height);
+            this.pauseOverlay.drawRect(0, top, width, Math.max(0, height - top - bottom));
             this.pauseOverlay.endFill();
         }
 
