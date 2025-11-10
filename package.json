@@ -5,12 +5,13 @@
   "type": "module",
   "main": "index.html",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "granite dev",
+    "build": "granite build",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
-    "android:build": "npm run build && npx cap sync android && cd android && ./gradlew bundleRelease"
+    "android:build": "npm run build && npx cap sync android && cd android && ./gradlew bundleRelease",
+    "deploy": "ait deploy"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.3",
@@ -23,6 +24,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "@apps-in-toss/web-framework": "^1.4.5",
     "@capacitor/android": "^7.4.4",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",

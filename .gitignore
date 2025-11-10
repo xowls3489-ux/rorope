@@ -41,3 +41,7 @@ rorope_key_base64.txt
 ios/App/Pods/
 ios/App/build/
 ios/App/App.xcworkspace/
+
+.granite
+*.ait
+.granite
