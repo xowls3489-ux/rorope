@@ -222,6 +222,7 @@ export class UIManager {
      * 게임 오버 시 UI 업데이트
      */
     public onGameOver(): void {
+        this.refreshUILayout();
         const game = gameState.get();
         const currentScore = game.score; // endGame에서 이미 설정된 최종 점수 사용
         const highScore = game.highScore;
@@ -229,9 +230,11 @@ export class UIManager {
         const maxCombo = game.maxCombo; // 역대 최고 콤보
         const isNewRecord = game.isNewRecord;
 
+        const { top, bottom } = this.getEffectiveInsets();
         const centerX = GAME_CONFIG.width / 2;
-        const centerY = GAME_CONFIG.height / 2; // 항상 중앙
-        const isMobile = GAME_CONFIG.height < 800;
+        const usableHeight = GAME_CONFIG.height - top - bottom;
+        const centerY = top + usableHeight / 2;
+        const isMobile = usableHeight < 800;
         
         // 오버레이 크기 조정
         this.gameOverOverlay.clear();
@@ -252,7 +255,7 @@ export class UIManager {
         } else {
             cardHeightBase = 380; // 데스크톱 기본
         }
-        const cardHeight = Math.min(cardHeightBase, GAME_CONFIG.height - 80); // 여유 공간 확대 (100 → 80)
+        const cardHeight = Math.min(cardHeightBase, Math.max(usableHeight - 40, 260));
         
         this.gameOverBg.clear();
         this.gameOverBg.lineStyle(2, 0x444444, 1);
@@ -657,7 +660,11 @@ export class UIManager {
         const cssRight = parseFloat(styles.getPropertyValue('--safe-area-inset-right') || '0') || 0;
         const cssBottom = parseFloat(styles.getPropertyValue('--safe-area-inset-bottom') || '0') || 0;
         const cssLeft = parseFloat(styles.getPropertyValue('--safe-area-inset-left') || '0') || 0;
+        return { top: cssTop, right: cssRight, bottom: cssBottom, left: cssLeft };
+    }
 
+    private getEffectiveInsets(): { top: number; right: number; bottom: number; left: number } {
+        const raw = this.getSafeAreaInsets();
         const viewport = window.visualViewport;
         const viewportTop = viewport ? viewport.offsetTop : 0;
         const viewportLeft = viewport ? viewport.offsetLeft : 0;
@@ -668,18 +675,21 @@ export class UIManager {
             ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
             : 0;
 
-        return {
-            top: Math.max(cssTop, viewportTop),
-            right: Math.max(cssRight, viewportRight),
-            bottom: Math.max(cssBottom, viewportBottom),
-            left: Math.max(cssLeft, viewportLeft),
-        };
+        const orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+        const navFallback = orientation === 'landscape' ? 64 : 48;
+
+        const top = Math.max(raw.top, viewportTop, navFallback);
+        const left = Math.max(raw.left, viewportLeft);
+        const right = Math.max(raw.right, viewportRight);
+        const bottom = Math.max(raw.bottom, viewportBottom);
+
+        return { top, right, bottom, left };
     }
 
     private refreshUILayout(): void {
         const width = GAME_CONFIG.width;
         const height = GAME_CONFIG.height;
-        const { top, right, bottom, left } = this.getSafeAreaInsets();
+        const { top, right, bottom, left } = this.getEffectiveInsets();
         const margin = 20;
 
         if (this.scoreText) {

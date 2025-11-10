@@ -6,7 +6,11 @@ export default defineConfig({
     displayName: '바밧줄',
     primaryColor: '#FF6F61',
     icon: 'https://example.com/icon.png',
-    bridgeColorMode: 'basic',
+    bridgeColorMode: 'inverted',
+  },
+  navigationBar: {
+    withBackButton: true,
+    withHomeButton: false,
   },
   web: {
     host: 'localhost',
