@@ -2,36 +2,12 @@
   import { onMount, onDestroy } from 'svelte';
   import { sceneActions } from '../stores/sceneStore';
   import { soundSystem } from '../systems/soundSystem';
-  import { getSafeAreaInsets } from '@apps-in-toss/web-framework';
 
   let soundEnabled = true;
   let audioUnlocked = false;
-  let safeAreaTop = 0;
-  let safeAreaRight = 0;
-  let soundButtonOffset = 20;
-
-  const updateInsets = () => {
-    try {
-      const insets = getSafeAreaInsets();
-      safeAreaTop = insets?.top ?? 0;
-      safeAreaRight = insets?.right ?? 0;
-    } catch (error) {
-      console.warn('Failed to fetch safe-area insets in TitleScene', error);
-      safeAreaTop = 0;
-      safeAreaRight = 0;
-    }
-
-    if (typeof window !== 'undefined') {
-      soundButtonOffset = window.innerWidth <= 768 ? 16 : 20;
-    }
-  };
 
   // localStorage에서 사운드 설정 불러오기
   onMount(async () => {
-    updateInsets();
-    window.addEventListener('resize', updateInsets);
-    window.addEventListener('orientationchange', updateInsets);
-
     const savedSoundMuted = localStorage.getItem('soundMuted');
     if (savedSoundMuted !== null) {
       soundEnabled = savedSoundMuted === 'false'; // muted false = enabled true
@@ -68,8 +44,6 @@
   onDestroy(() => {
     // 타이틀씬 떠날 때 타이틀 배경음 정지
     soundSystem.stop('titleBgm');
-    window.removeEventListener('resize', updateInsets);
-    window.removeEventListener('orientationchange', updateInsets);
   });
 
   function toggleSound() {
@@ -106,12 +80,7 @@
 
 <div class="start-screen">
   <!-- 사운드 토글 버튼 (우측 상단) -->
-  <button
-    class="sound-toggle"
-    on:click={toggleSound}
-    aria-label="소리 켜기/끄기"
-    style={`top: ${soundButtonOffset + safeAreaTop}px; right: ${soundButtonOffset + safeAreaRight}px;`}
-  >
+  <button class="sound-toggle" on:click={toggleSound} aria-label="소리 켜기/끄기">
     {#if soundEnabled}
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -151,6 +120,8 @@
 
   .sound-toggle {
     position: absolute;
+    top: 20px;
+    right: 20px;
     background: transparent;
     border: 2px solid #FFFFFF;
     color: #FFFFFF;
@@ -214,6 +185,8 @@
     .sound-toggle {
       width: 48px;
       height: 48px;
+      top: 16px;
+      right: 16px;
     }
 
     .sound-toggle svg {
