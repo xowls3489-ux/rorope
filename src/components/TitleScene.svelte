@@ -120,8 +120,10 @@
 
   .sound-toggle {
     position: absolute;
-    top: 20px;
+    top: 80px;
     right: 20px;
+    top: calc(80px + env(safe-area-inset-top, 0px));
+    right: calc(20px + env(safe-area-inset-right, 0px));
     background: transparent;
     border: 2px solid #FFFFFF;
     color: #FFFFFF;
@@ -185,8 +187,10 @@
     .sound-toggle {
       width: 48px;
       height: 48px;
-      top: 16px;
+      top: 60px;
       right: 16px;
+      top: calc(60px + env(safe-area-inset-top, 0px));
+      right: calc(16px + env(safe-area-inset-right, 0px));
     }
 
     .sound-toggle svg {

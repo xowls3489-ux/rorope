@@ -22,4 +22,7 @@ export default defineConfig({
   },
   permissions: [],
   outdir: 'dist',
+  webViewProps: {
+    type: 'game',
+  },
 });

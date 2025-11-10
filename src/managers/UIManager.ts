@@ -234,16 +234,14 @@ export class UIManager {
         const maxCombo = game.maxCombo; // 역대 최고 콤보
         const isNewRecord = game.isNewRecord;
 
-        const { top, bottom } = this.getEffectiveInsets();
         const centerX = GAME_CONFIG.width / 2;
-        const usableHeight = GAME_CONFIG.height - top - bottom;
-        const centerY = top + usableHeight / 2;
-        const isMobile = usableHeight < 800;
+        const centerY = GAME_CONFIG.height / 2;
+        const isMobile = GAME_CONFIG.height < 800;
         
         // 오버레이 크기 조정
         this.gameOverOverlay.clear();
         this.gameOverOverlay.beginFill(0x000000, 0.85);
-        this.gameOverOverlay.drawRect(0, top, GAME_CONFIG.width, Math.max(0, GAME_CONFIG.height - top - bottom));
+        this.gameOverOverlay.drawRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
         this.gameOverOverlay.endFill();
         
         // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
@@ -251,22 +249,25 @@ export class UIManager {
         // 신기록 여부와 모바일 여부에 따라 높이 조정
         let cardHeightBase: number;
         if (isNewRecord && isMobile) {
-            cardHeightBase = 440; // 모바일 + 신기록: 더 여유있게
+            cardHeightBase = 420; // 모바일 + 신기록: 여유 확보
         } else if (isNewRecord) {
-            cardHeightBase = 420; // 데스크톱 + 신기록
+            cardHeightBase = 400; // 데스크톱 + 신기록
         } else if (isMobile) {
-            cardHeightBase = 360; // 모바일 기본
+            cardHeightBase = 340; // 모바일 기본
         } else {
-            cardHeightBase = 380; // 데스크톱 기본
+            cardHeightBase = 360; // 데스크톱 기본
         }
-        const cardHeight = Math.min(cardHeightBase, Math.max(usableHeight - 40, 260));
+        const minimumCardHeight = isMobile ? 300 : 320;
+        const availableHeight = Math.max(260, GAME_CONFIG.height - 200);
+        const cardHeight = Math.max(minimumCardHeight, Math.min(cardHeightBase, availableHeight));
+        const cardTop = centerY - cardHeight / 2;
         
         this.gameOverBg.clear();
         this.gameOverBg.lineStyle(2, 0x444444, 1);
         this.gameOverBg.beginFill(0x1a1a1a, 0.95);
         this.gameOverBg.drawRoundedRect(
             centerX - cardWidth / 2,
-            centerY - cardHeight / 2,
+            cardTop,
             cardWidth,
             cardHeight,
             20
@@ -274,15 +275,15 @@ export class UIManager {
         this.gameOverBg.endFill();
         
         // 타이틀 위치 (동적 조정)
-        const titleOffsetY = Math.min(160, cardHeight / 2 - 30);
+        const titleCenterY = cardTop + (isMobile ? 100 : 120);
         this.gameOverTitle.x = centerX;
-        this.gameOverTitle.y = centerY - titleOffsetY;
+        this.gameOverTitle.y = titleCenterY;
         
         // 타이틀 폰트 크기도 모바일에서 작게
         this.gameOverTitle.style.fontSize = isMobile ? 32 : 48;
         
-        // yOffset 동적 조정
-        let yOffset = centerY - Math.min(80, cardHeight / 2 - 60);
+        // 본문 레이아웃 시작 위치
+        let statsTop = cardTop + (isMobile ? 190 : 210);
         
         // 신기록 배지
         this.newRecordBadge.removeChildren();
@@ -307,10 +308,10 @@ export class UIManager {
             this.newRecordBadge.addChild(badgeBg);
             this.newRecordBadge.addChild(badgeText);
             this.newRecordBadge.x = centerX;
-            this.newRecordBadge.y = yOffset;
+            this.newRecordBadge.y = cardTop + (isMobile ? 150 : 170);
             this.newRecordBadge.visible = true;
             
-            yOffset += isMobile ? 48 : 50; // 모바일에서 간격 약간 확대
+            statsTop += isMobile ? 80 : 90; // 신기록 배지가 있을 때 아래로 더 여유 확보
         } else {
             this.newRecordBadge.visible = false;
         }
@@ -324,7 +325,7 @@ export class UIManager {
             highScore,
             'm',
             centerX - cardWidth / 2 + 20,
-            yOffset,
+            statsTop,
             (cardWidth - 60) / 2,
             currentScore > highScore
         );
@@ -338,7 +339,7 @@ export class UIManager {
             maxCombo,
             '',
             centerX + 20,
-            yOffset,
+            statsTop,
             (cardWidth - 60) / 2,
             roundMaxCombo > maxCombo
         );
@@ -348,8 +349,10 @@ export class UIManager {
         const btnWidth = cardWidth - 40;
         const btnHeight = isMobile ? 50 : 60;
         const btnX = centerX - btnWidth / 2;
-        const btnBottomMargin = isMobile ? 20 : 20; // 모바일 하단 마진 약간 확대
-        const btnY = centerY + cardHeight / 2 - btnHeight - btnBottomMargin;
+        const statsRowHeight = isMobile ? 110 : 130;
+        const buttonBottomMargin = isMobile ? 30 : 40;
+        const minButtonY = statsTop + statsRowHeight + 20;
+        const btnY = Math.max(minButtonY, cardTop + cardHeight - btnHeight - buttonBottomMargin);
         
         const btnBg = new PIXI.Graphics();
         btnBg.lineStyle(2, 0xFFFFFF, 1);
@@ -660,7 +663,9 @@ export class UIManager {
 
     private readSafeArea(): { top: number; right: number; bottom: number; left: number } {
         try {
-            const insets = fetchSafeAreaInsets();
+            const insets = fetchSafeAreaInsets() as
+                | { top?: number; right?: number; bottom?: number; left?: number }
+                | undefined;
             if (insets) {
                 return {
                     top: insets.top ?? 0,
@@ -708,8 +713,12 @@ export class UIManager {
     private refreshUILayout(): void {
         const width = GAME_CONFIG.width;
         const height = GAME_CONFIG.height;
-        const { top, right, bottom, left } = this.getEffectiveInsets();
-        const margin = 20;
+        const insets = this.getEffectiveInsets();
+        const top = insets.top;
+        const right = insets.right;
+        const bottom = insets.bottom;
+        const left = insets.left;
+        const margin = 10;
 
         if (this.scoreText) {
             this.scoreText.x = left + margin;
@@ -718,7 +727,7 @@ export class UIManager {
 
         if (this.comboText) {
             this.comboText.x = width / 2;
-            this.comboText.y = top + 70;
+            this.comboText.y = top + 60;
         }
 
         if (this.pauseButton) {
