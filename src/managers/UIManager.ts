@@ -228,73 +228,68 @@ export class UIManager {
     public onGameOver(): void {
         this.refreshUILayout();
         const game = gameState.get();
-        const currentScore = game.score; // endGame에서 이미 설정된 최종 점수 사용
+        const currentScore = game.score;
         const highScore = game.highScore;
-        const roundMaxCombo = game.roundMaxCombo; // 이번 라운드 최고 콤보
-        const maxCombo = game.maxCombo; // 역대 최고 콤보
+        const roundMaxCombo = game.roundMaxCombo;
+        const maxCombo = game.maxCombo;
         const isNewRecord = game.isNewRecord;
 
+        const width = GAME_CONFIG.width;
+        const height = GAME_CONFIG.height;
         const { top, bottom } = this.getEffectiveInsets();
-        const centerX = GAME_CONFIG.width / 2;
-        const usableHeight = GAME_CONFIG.height - top - bottom;
+        const centerX = width / 2;
+        const usableHeight = Math.max(200, height - top - bottom);
         const centerY = top + usableHeight / 2;
         const isMobile = usableHeight < 800;
-        
-        // 오버레이 크기 조정
+
         this.gameOverOverlay.clear();
         this.gameOverOverlay.beginFill(0x000000, 0.85);
-        this.gameOverOverlay.drawRect(0, top, GAME_CONFIG.width, Math.max(0, GAME_CONFIG.height - top - bottom));
+        this.gameOverOverlay.drawRect(0, 0, width, height);
         this.gameOverOverlay.endFill();
-        
-        // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
-        const cardWidth = Math.min(400, GAME_CONFIG.width - 80);
-        // 신기록 여부와 모바일 여부에 따라 높이 조정
+
+        const cardWidth = Math.min(400, width - 80);
         let cardHeightBase: number;
         if (isNewRecord && isMobile) {
-            cardHeightBase = 440; // 모바일 + 신기록: 더 여유있게
+            cardHeightBase = 440;
         } else if (isNewRecord) {
-            cardHeightBase = 420; // 데스크톱 + 신기록
+            cardHeightBase = 420;
         } else if (isMobile) {
-            cardHeightBase = 360; // 모바일 기본
+            cardHeightBase = 360;
         } else {
-            cardHeightBase = 380; // 데스크톱 기본
+            cardHeightBase = 380;
         }
-        const cardHeight = Math.min(cardHeightBase, Math.max(usableHeight - 40, 260));
-        
+        const cardHeight = Math.min(cardHeightBase, Math.max(usableHeight - 40, 320));
+        const cardTop = centerY - cardHeight / 2;
+
         this.gameOverBg.clear();
         this.gameOverBg.lineStyle(2, 0x444444, 1);
         this.gameOverBg.beginFill(0x1a1a1a, 0.95);
         this.gameOverBg.drawRoundedRect(
             centerX - cardWidth / 2,
-            centerY - cardHeight / 2,
+            cardTop,
             cardWidth,
             cardHeight,
             20
         );
         this.gameOverBg.endFill();
-        
-        // 타이틀 위치 (동적 조정)
+
         const titleOffsetY = Math.min(160, cardHeight / 2 - 30);
         this.gameOverTitle.x = centerX;
         this.gameOverTitle.y = centerY - titleOffsetY;
-        
-        // 타이틀 폰트 크기도 모바일에서 작게
         this.gameOverTitle.style.fontSize = isMobile ? 32 : 48;
-        
-        // yOffset 동적 조정
+
         let yOffset = centerY - Math.min(80, cardHeight / 2 - 60);
-        
-        // 신기록 배지
+
         this.newRecordBadge.removeChildren();
         if (isNewRecord) {
             const badgeWidth = isMobile ? 140 : 160;
             const badgeHeight = isMobile ? 35 : 40;
-            
+
             const badgeBg = new PIXI.Graphics();
             badgeBg.beginFill(0xFFD700, 1);
             badgeBg.drawRoundedRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 20);
             badgeBg.endFill();
-            
+
             const badgeText = new PIXI.Text('✨ NEW RECORD ✨', {
                 fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
                 fontSize: isMobile ? 14 : 18,
@@ -303,19 +298,18 @@ export class UIManager {
                 fontWeight: 'bold',
             });
             badgeText.anchor.set(0.5, 0.5);
-            
+
             this.newRecordBadge.addChild(badgeBg);
             this.newRecordBadge.addChild(badgeText);
             this.newRecordBadge.x = centerX;
             this.newRecordBadge.y = yOffset;
             this.newRecordBadge.visible = true;
-            
-            yOffset += isMobile ? 48 : 50; // 모바일에서 간격 약간 확대
+
+            yOffset += isMobile ? 48 : 50;
         } else {
             this.newRecordBadge.visible = false;
         }
-        
-        // 점수 박스
+
         this.scoreBox.removeChildren();
         this.drawStatBox(
             this.scoreBox,
@@ -328,8 +322,7 @@ export class UIManager {
             (cardWidth - 60) / 2,
             currentScore > highScore
         );
-        
-        // 콤보 박스 (이번 라운드 최고 콤보 vs 역대 최고 콤보)
+
         this.comboBox.removeChildren();
         this.drawStatBox(
             this.comboBox,
@@ -342,21 +335,19 @@ export class UIManager {
             (cardWidth - 60) / 2,
             roundMaxCombo > maxCombo
         );
-        
-        // 재시도 버튼 (모바일 대응)
+
         this.retryButton.removeChildren();
         const btnWidth = cardWidth - 40;
         const btnHeight = isMobile ? 50 : 60;
         const btnX = centerX - btnWidth / 2;
-        const btnBottomMargin = isMobile ? 20 : 20; // 모바일 하단 마진 약간 확대
-        const btnY = centerY + cardHeight / 2 - btnHeight - btnBottomMargin;
-        
+        const btnY = cardTop + cardHeight - btnHeight - 20;
+
         const btnBg = new PIXI.Graphics();
         btnBg.lineStyle(2, 0xFFFFFF, 1);
         btnBg.beginFill(0x333333, 1);
         btnBg.drawRoundedRect(0, 0, btnWidth, btnHeight, 15);
         btnBg.endFill();
-        
+
         const btnText = new PIXI.Text('TAP TO RETRY', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
             fontSize: isMobile ? 20 : 24,
@@ -367,15 +358,15 @@ export class UIManager {
         btnText.anchor.set(0.5, 0.5);
         btnText.x = btnWidth / 2;
         btnText.y = btnHeight / 2;
-        
+
         this.retryButton.addChild(btnBg);
         this.retryButton.addChild(btnText);
         this.retryButton.x = btnX;
         this.retryButton.y = btnY;
-        
+
         this.gameOverContainer.visible = true;
-        this.pauseButton.visible = false; // 게임오버 시 일시정지 버튼 숨김
-        this.pausePanel.visible = false; // 일시정지 패널도 숨김
+        this.pauseButton.visible = false;
+        this.pausePanel.visible = false;
         animationSystem.gameOverAnimation(this.gameOverTitle);
     }
     
@@ -722,7 +713,8 @@ export class UIManager {
         }
 
         if (this.pauseButton) {
-            this.pauseButton.x = Math.max(left + margin, width - right - margin - this.pauseButton.width);
+            const pauseButtonWidth = this.pauseButton.width || 50;
+            this.pauseButton.x = Math.max(left + margin, width - pauseButtonWidth - margin - right);
             this.pauseButton.y = top + margin;
         }
 
