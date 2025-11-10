@@ -27,8 +27,18 @@ export class UIManager {
     
     // 일시정지 UI 요소들
     private pauseButton!: PIXI.Container;
+    private pauseButtonBg!: PIXI.Graphics;
     private pausePanel!: PIXI.Container;
     private pauseOverlay!: PIXI.Graphics;
+    private pauseContent!: PIXI.Container;
+    private pausePanelBg!: PIXI.Graphics;
+    private pauseTitleText!: PIXI.Text;
+    private soundToggleBtn!: PIXI.Container;
+    private soundBtnBg!: PIXI.Graphics;
+    private soundBtnText!: PIXI.Text;
+    private resumeBtn!: PIXI.Container;
+    private resumeBtnBg!: PIXI.Graphics;
+    private resumeBtnText!: PIXI.Text;
     private onPauseCallback?: () => void;
     private onResumeCallback?: () => void;
     private onSoundToggleCallback?: (enabled: boolean) => void;
@@ -141,24 +151,12 @@ export class UIManager {
 
     private setupResizeHandler(): void {
         const handleResize = () => {
-            // 점수 텍스트 위치
-            if (this.scoreText) {
-                this.scoreText.x = 20;
-                this.scoreText.y = 20;
-            }
-
-            // 콤보 텍스트 위치
-            if (this.comboText) {
-                this.comboText.x = GAME_CONFIG.width / 2;
-                this.comboText.y = 70;
-            }
-
-            // 게임오버 텍스트 위치
-            this.updateGameOverPosition();
+            this.refreshUILayout();
         };
 
         window.addEventListener('resize', handleResize);
         window.addEventListener('orientationchange', handleResize);
+        this.refreshUILayout();
     }
 
     private updateGameOverPosition(): void {
@@ -503,14 +501,11 @@ export class UIManager {
     private initPauseUI(): void {
         // 일시정지 버튼 (우측 상단)
         this.pauseButton = new PIXI.Container();
-        this.pauseButton.x = GAME_CONFIG.width - 70;
-        this.pauseButton.y = 20;
-        
-        const pauseBtnBg = new PIXI.Graphics();
-        pauseBtnBg.lineStyle(2, 0xFFFFFF, 1);
-        pauseBtnBg.beginFill(0x000000, 0.5);
-        pauseBtnBg.drawRoundedRect(0, 0, 50, 50, 10);
-        pauseBtnBg.endFill();
+        this.pauseButtonBg = new PIXI.Graphics();
+        this.pauseButtonBg.lineStyle(2, 0xFFFFFF, 1);
+        this.pauseButtonBg.beginFill(0x000000, 0.5);
+        this.pauseButtonBg.drawRoundedRect(0, 0, 50, 50, 10);
+        this.pauseButtonBg.endFill();
         
         // 일시정지 아이콘 (두 개의 막대)
         const pauseIcon = new PIXI.Graphics();
@@ -519,7 +514,7 @@ export class UIManager {
         pauseIcon.drawRect(29, 15, 6, 20);
         pauseIcon.endFill();
         
-        this.pauseButton.addChild(pauseBtnBg);
+        this.pauseButton.addChild(this.pauseButtonBg);
         this.pauseButton.addChild(pauseIcon);
         this.pauseButton.interactive = true;
         this.pauseButton.cursor = 'pointer';
@@ -537,70 +532,47 @@ export class UIManager {
         
         // 반투명 오버레이
         this.pauseOverlay = new PIXI.Graphics();
-        this.pauseOverlay.beginFill(0x000000, 0.85);
-        this.pauseOverlay.drawRect(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
-        this.pauseOverlay.endFill();
         this.pausePanel.addChild(this.pauseOverlay);
         
+        this.pauseContent = new PIXI.Container();
+        this.pausePanel.addChild(this.pauseContent);
+
         // 패널 배경
-        const panelWidth = Math.min(380, GAME_CONFIG.width - 80);
-        const panelHeight = 320;
-        const panelX = GAME_CONFIG.width / 2 - panelWidth / 2;
-        const panelY = GAME_CONFIG.height / 2 - panelHeight / 2;
-        
-        const panelBg = new PIXI.Graphics();
-        panelBg.lineStyle(2, 0x444444, 1);
-        panelBg.beginFill(0x1a1a1a, 0.95);
-        panelBg.drawRoundedRect(panelX, panelY, panelWidth, panelHeight, 20);
-        panelBg.endFill();
-        this.pausePanel.addChild(panelBg);
+        this.pausePanelBg = new PIXI.Graphics();
+        this.pauseContent.addChild(this.pausePanelBg);
         
         // PAUSED 타이틀
-        const pauseTitle = new PIXI.Text('PAUSED', {
+        this.pauseTitleText = new PIXI.Text('PAUSED', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
             fontSize: 42,
             fill: 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
         });
-        pauseTitle.anchor.set(0.5, 0);
-        pauseTitle.x = GAME_CONFIG.width / 2;
-        pauseTitle.y = panelY + 30;
-        this.pausePanel.addChild(pauseTitle);
+        this.pauseTitleText.anchor.set(0.5, 0);
+        this.pauseContent.addChild(this.pauseTitleText);
         
         // 사운드 토글 버튼
-        const soundToggleBtn = new PIXI.Container();
-        const btnWidth = panelWidth - 40;
+        this.soundToggleBtn = new PIXI.Container();
         const btnHeight = 60;
-        const btnX = panelX + 20;
-        let btnY = panelY + 100;
         
-        const soundBtnBg = new PIXI.Graphics();
-        soundBtnBg.lineStyle(2, 0x666666, 1);
-        soundBtnBg.beginFill(0x2a2a2a, 1);
-        soundBtnBg.drawRoundedRect(0, 0, btnWidth, btnHeight, 12);
-        soundBtnBg.endFill();
+        this.soundBtnBg = new PIXI.Graphics();
+        this.soundToggleBtn.addChild(this.soundBtnBg);
         
-        const soundBtnText = new PIXI.Text('🔊 SOUND: ON', {
+        this.soundBtnText = new PIXI.Text('🔊 SOUND: ON', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
             fontSize: 20,
             fill: 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
         });
-        soundBtnText.anchor.set(0.5, 0.5);
-        soundBtnText.x = btnWidth / 2;
-        soundBtnText.y = btnHeight / 2;
-        
-        soundToggleBtn.addChild(soundBtnBg);
-        soundToggleBtn.addChild(soundBtnText);
-        soundToggleBtn.x = btnX;
-        soundToggleBtn.y = btnY;
-        soundToggleBtn.interactive = true;
-        soundToggleBtn.cursor = 'pointer';
+        this.soundBtnText.anchor.set(0.5, 0.5);
+        this.soundToggleBtn.addChild(this.soundBtnText);
+        this.soundToggleBtn.interactive = true;
+        this.soundToggleBtn.cursor = 'pointer';
         
         // 사운드 토글 클릭 이벤트
-        soundToggleBtn.on('pointerdown', () => {
+        this.soundToggleBtn.on('pointerdown', () => {
             const currentMuted = localStorage.getItem('soundMuted') === 'true';
             const newMuted = !currentMuted;
             
@@ -609,47 +581,38 @@ export class UIManager {
             }
             
             // 버튼 텍스트 업데이트
-            soundBtnText.text = newMuted ? '🔇 SOUND: OFF' : '🔊 SOUND: ON';
+            this.soundBtnText.text = newMuted ? '🔇 SOUND: OFF' : '🔊 SOUND: ON';
         });
         
-        this.pausePanel.addChild(soundToggleBtn);
+        this.pauseContent.addChild(this.soundToggleBtn);
         
         // Resume 버튼
-        btnY += btnHeight + 20;
-        const resumeBtn = new PIXI.Container();
+        this.resumeBtn = new PIXI.Container();
         
-        const resumeBtnBg = new PIXI.Graphics();
-        resumeBtnBg.lineStyle(2, 0xFFFFFF, 1);
-        resumeBtnBg.beginFill(0x333333, 1);
-        resumeBtnBg.drawRoundedRect(0, 0, btnWidth, btnHeight, 12);
-        resumeBtnBg.endFill();
+        this.resumeBtnBg = new PIXI.Graphics();
+        this.resumeBtn.addChild(this.resumeBtnBg);
         
-        const resumeBtnText = new PIXI.Text('▶ RESUME', {
+        this.resumeBtnText = new PIXI.Text('▶ RESUME', {
             fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
             fontSize: 24,
             fill: 0xFFFFFF,
             align: 'center',
             fontWeight: 'bold',
         });
-        resumeBtnText.anchor.set(0.5, 0.5);
-        resumeBtnText.x = btnWidth / 2;
-        resumeBtnText.y = btnHeight / 2;
-        
-        resumeBtn.addChild(resumeBtnBg);
-        resumeBtn.addChild(resumeBtnText);
-        resumeBtn.x = btnX;
-        resumeBtn.y = btnY;
-        resumeBtn.interactive = true;
-        resumeBtn.cursor = 'pointer';
-        resumeBtn.on('pointerdown', () => {
+        this.resumeBtnText.anchor.set(0.5, 0.5);
+        this.resumeBtn.addChild(this.resumeBtnText);
+        this.resumeBtn.interactive = true;
+        this.resumeBtn.cursor = 'pointer';
+        this.resumeBtn.on('pointerdown', () => {
             if (this.onResumeCallback) {
                 this.onResumeCallback();
             }
         });
         
-        this.pausePanel.addChild(resumeBtn);
+        this.pauseContent.addChild(this.resumeBtn);
         
         this.stage.addChild(this.pausePanel);
+        this.refreshUILayout();
     }
     
     // 일시정지 콜백 설정
@@ -686,6 +649,108 @@ export class UIManager {
         this.stage.removeChild(this.pausePanel);
         this.stage.addChild(this.pauseButton);
         this.stage.addChild(this.pausePanel);
+    }
+
+    private getSafeAreaInsets(): { top: number; right: number; bottom: number; left: number } {
+        const styles = window.getComputedStyle(document.documentElement);
+        const cssTop = parseFloat(styles.getPropertyValue('--safe-area-inset-top') || '0') || 0;
+        const cssRight = parseFloat(styles.getPropertyValue('--safe-area-inset-right') || '0') || 0;
+        const cssBottom = parseFloat(styles.getPropertyValue('--safe-area-inset-bottom') || '0') || 0;
+        const cssLeft = parseFloat(styles.getPropertyValue('--safe-area-inset-left') || '0') || 0;
+
+        const viewport = window.visualViewport;
+        const viewportTop = viewport ? viewport.offsetTop : 0;
+        const viewportLeft = viewport ? viewport.offsetLeft : 0;
+        const viewportRight = viewport
+            ? Math.max(0, window.innerWidth - viewport.width - viewport.offsetLeft)
+            : 0;
+        const viewportBottom = viewport
+            ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+            : 0;
+
+        return {
+            top: Math.max(cssTop, viewportTop),
+            right: Math.max(cssRight, viewportRight),
+            bottom: Math.max(cssBottom, viewportBottom),
+            left: Math.max(cssLeft, viewportLeft),
+        };
+    }
+
+    private refreshUILayout(): void {
+        const width = GAME_CONFIG.width;
+        const height = GAME_CONFIG.height;
+        const { top, right, bottom, left } = this.getSafeAreaInsets();
+        const margin = 20;
+
+        if (this.scoreText) {
+            this.scoreText.x = left + margin;
+            this.scoreText.y = top + margin;
+        }
+
+        if (this.comboText) {
+            this.comboText.x = width / 2;
+            this.comboText.y = top + 70;
+        }
+
+        if (this.pauseButton) {
+            this.pauseButton.x = Math.max(left + margin, width - right - margin - this.pauseButton.width);
+            this.pauseButton.y = top + margin;
+        }
+
+        if (this.pauseOverlay) {
+            this.pauseOverlay.clear();
+            this.pauseOverlay.beginFill(0x000000, 0.85);
+            this.pauseOverlay.drawRect(0, 0, width, height);
+            this.pauseOverlay.endFill();
+        }
+
+        if (this.pauseContent && this.pausePanelBg && this.soundToggleBtn && this.resumeBtn) {
+            const availableWidth = Math.max(200, width - left - right);
+            const availableHeight = Math.max(200, height - top - bottom);
+
+            const panelWidth = Math.min(380, availableWidth - 40);
+            const panelHeight = Math.min(320, availableHeight - 40);
+            const contentX = left + (availableWidth - panelWidth) / 2;
+            const contentY = top + (availableHeight - panelHeight) / 2;
+
+            this.pauseContent.position.set(contentX, contentY);
+
+            this.pausePanelBg.clear();
+            this.pausePanelBg.lineStyle(2, 0x444444, 1);
+            this.pausePanelBg.beginFill(0x1a1a1a, 0.95);
+            this.pausePanelBg.drawRoundedRect(0, 0, panelWidth, panelHeight, 20);
+            this.pausePanelBg.endFill();
+
+            this.pauseTitleText.x = panelWidth / 2;
+            this.pauseTitleText.y = Math.min(30, panelHeight * 0.1);
+
+            const buttonWidth = panelWidth - 40;
+            const buttonHeight = Math.min(60, Math.max(48, panelHeight * 0.18));
+
+            this.soundBtnBg.clear();
+            this.soundBtnBg.lineStyle(2, 0x666666, 1);
+            this.soundBtnBg.beginFill(0x2a2a2a, 1);
+            this.soundBtnBg.drawRoundedRect(0, 0, buttonWidth, buttonHeight, 12);
+            this.soundBtnBg.endFill();
+
+            this.soundToggleBtn.x = 20;
+            this.soundToggleBtn.y = this.pauseTitleText.y + this.pauseTitleText.height + 30;
+            this.soundBtnText.x = buttonWidth / 2;
+            this.soundBtnText.y = buttonHeight / 2;
+
+            this.resumeBtnBg.clear();
+            this.resumeBtnBg.lineStyle(2, 0xFFFFFF, 1);
+            this.resumeBtnBg.beginFill(0x333333, 1);
+            this.resumeBtnBg.drawRoundedRect(0, 0, buttonWidth, buttonHeight, 12);
+            this.resumeBtnBg.endFill();
+
+            this.resumeBtn.x = 20;
+            this.resumeBtn.y = this.soundToggleBtn.y + buttonHeight + 20;
+            this.resumeBtnText.x = buttonWidth / 2;
+            this.resumeBtnText.y = buttonHeight / 2;
+        }
+
+        this.updateGameOverPosition();
     }
 }
 
