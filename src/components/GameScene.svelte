@@ -1,6 +1,17 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { initGameManager } from '../core/GameManager';
+  import PauseModal from './PauseModal.svelte';
+  import GameOverModal from './GameOverModal.svelte';
+
+  type GameOverOverlayState = {
+    open: boolean;
+    score: number;
+    bestScore: number;
+    combo: number;
+    bestCombo: number;
+    isNewRecord: boolean;
+  };
 
   let titleInstance = null;
   let gameContainer = null;
@@ -8,6 +19,20 @@
   let showTutorial = false;
   let tutorialMode: 'intro' | 'replay' = 'intro';
   let gameInstanceRef: any = null;
+
+  let pauseModalOpen = false;
+  let pauseSoundEnabled = true;
+
+  const createInitialGameOverState = (): GameOverOverlayState => ({
+    open: false,
+    score: 0,
+    bestScore: 0,
+    combo: 0,
+    bestCombo: 0,
+    isNewRecord: false
+  });
+
+  let gameOverOverlay: GameOverOverlayState = createInitialGameOverState();
 
   const startGame = async () => {
     if (gameInstanceRef && typeof gameInstanceRef.startGameFromUI === 'function') {
@@ -34,15 +59,78 @@
     tutorialMode = 'intro';
   };
 
-const handleTutorialShow = (event: Event) => {
-  const detail = (event as CustomEvent<{ mode?: 'intro' | 'replay' }>).detail;
-  tutorialMode = detail?.mode === 'intro' ? 'intro' : 'replay';
-  showTutorial = true;
-};
+  const handleTutorialShow = (event: Event) => {
+    const detail = (event as CustomEvent<{ mode?: 'intro' | 'replay' }>).detail;
+    tutorialMode = detail?.mode === 'intro' ? 'intro' : 'replay';
+    showTutorial = true;
+  };
+
+  const handlePauseOpenEvent = (event: Event) => {
+    const detail = (event as CustomEvent<{ soundEnabled?: boolean }>).detail;
+    if (typeof detail?.soundEnabled === 'boolean') {
+      pauseSoundEnabled = detail.soundEnabled;
+    }
+    pauseModalOpen = true;
+  };
+
+  const handlePauseCloseEvent = () => {
+    pauseModalOpen = false;
+  };
+
+  const handleSoundChangedEvent = (event: Event) => {
+    const detail = (event as CustomEvent<{ soundEnabled?: boolean }>).detail;
+    if (typeof detail?.soundEnabled === 'boolean') {
+      pauseSoundEnabled = detail.soundEnabled;
+    }
+  };
+
+  const handleGameOverOpenEvent = (event: Event) => {
+    const detail =
+      (event as CustomEvent<Partial<GameOverOverlayState>>).detail ?? {};
+    gameOverOverlay = {
+      open: true,
+      score: detail.score ?? 0,
+      bestScore: detail.bestScore ?? 0,
+      combo: detail.combo ?? 0,
+      bestCombo: detail.bestCombo ?? 0,
+      isNewRecord: Boolean(detail.isNewRecord)
+    };
+  };
+
+  const handleGameOverCloseEvent = () => {
+    gameOverOverlay = createInitialGameOverState();
+  };
+
+  const handlePauseResume = () => {
+    const manager = gameInstanceRef?.getUIManager?.();
+    manager?.requestResumeFromOverlay?.();
+  };
+
+  const handlePauseSoundToggle = () => {
+    const manager = gameInstanceRef?.getUIManager?.();
+    manager?.requestSoundToggleFromOverlay?.();
+  };
+
+  const handlePauseShowTutorial = () => {
+    const manager = gameInstanceRef?.getUIManager?.();
+    manager?.requestTutorialFromOverlay?.();
+  };
+
+  const handlePauseResetRecords = () => {
+    const manager = gameInstanceRef?.getUIManager?.();
+    manager?.requestResetRecordsFromOverlay?.();
+  };
+
+  const handleGameOverRetry = () => {
+    if (gameInstanceRef && typeof gameInstanceRef.restartGameFromUI === 'function') {
+      gameInstanceRef.restartGameFromUI();
+    }
+    gameOverOverlay = { ...gameOverOverlay, open: false };
+  };
 
   onMount(async () => {
     console.log('GameScene mounted - initializing PixiJS game...');
-    
+
     gameContainer = document.getElementById('game-root');
     if (!gameContainer) {
       console.error('game-root 엘리먼트를 찾을 수 없습니다.');
@@ -55,6 +143,17 @@ const handleTutorialShow = (event: Event) => {
       console.log('PixiJS game initialized:', gameInstance);
 
       window.addEventListener('tutorial-show', handleTutorialShow);
+      window.addEventListener('game-ui:pause-open', handlePauseOpenEvent as EventListener);
+      window.addEventListener('game-ui:pause-close', handlePauseCloseEvent as EventListener);
+      window.addEventListener('game-ui:sound-changed', handleSoundChangedEvent as EventListener);
+      window.addEventListener('game-ui:gameover-open', handleGameOverOpenEvent as EventListener);
+      window.addEventListener('game-ui:gameover-close', handleGameOverCloseEvent as EventListener);
+
+      try {
+        pauseSoundEnabled = localStorage.getItem('soundMuted') !== 'true';
+      } catch {
+        pauseSoundEnabled = true;
+      }
 
       const tutorialSeen = localStorage.getItem('tutorialSeen_v1') === 'true';
       if (tutorialSeen) {
@@ -70,28 +169,26 @@ const handleTutorialShow = (event: Event) => {
 
   onDestroy(() => {
     console.log('GameScene destroyed - cleaning up PixiJS...');
-    
-    // PixiJS 앱 정리
+
     if (window.gameInstance && window.gameInstance.app) {
       const app = window.gameInstance.app;
-      
-      // Ticker 정지
+
       if (app.ticker) {
         app.ticker.stop();
       }
-      
-      // 애플리케이션 파괴 (자동으로 리스너 정리됨)
+
       app.destroy(true);
-      
-      // DOM 정리는 PixiJS app.destroy(true)가 처리하므로 별도 innerHTML 조작은 생략
-      
-      // 전역 인스턴스 초기화
       window.gameInstance = null;
     }
-    
+
     console.log('PixiJS cleanup complete');
 
     window.removeEventListener('tutorial-show', handleTutorialShow);
+    window.removeEventListener('game-ui:pause-open', handlePauseOpenEvent as EventListener);
+    window.removeEventListener('game-ui:pause-close', handlePauseCloseEvent as EventListener);
+    window.removeEventListener('game-ui:sound-changed', handleSoundChangedEvent as EventListener);
+    window.removeEventListener('game-ui:gameover-open', handleGameOverOpenEvent as EventListener);
+    window.removeEventListener('game-ui:gameover-close', handleGameOverCloseEvent as EventListener);
   });
 </script>
 
@@ -108,6 +205,25 @@ const handleTutorialShow = (event: Event) => {
     </div>
   </div>
 {/if}
+
+<PauseModal
+  open={pauseModalOpen}
+  soundEnabled={pauseSoundEnabled}
+  on:resume={handlePauseResume}
+  on:toggle-sound={handlePauseSoundToggle}
+  on:show-tutorial={handlePauseShowTutorial}
+  on:reset-records={handlePauseResetRecords}
+/>
+
+<GameOverModal
+  open={gameOverOverlay.open}
+  score={gameOverOverlay.score}
+  bestScore={gameOverOverlay.bestScore}
+  combo={gameOverOverlay.combo}
+  bestCombo={gameOverOverlay.bestCombo}
+  isNewRecord={gameOverOverlay.isNewRecord}
+  on:retry={handleGameOverRetry}
+/>
 
 <style>
   .tutorial-overlay {

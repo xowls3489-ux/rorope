@@ -12,8 +12,59 @@ const ensureOrientation = (type: 'portrait' | 'landscape') => {
   });
 };
 
+const cssRoot = () => document.documentElement;
+
+const updateViewportVars = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const vv = window.visualViewport;
+  const width = vv?.width ?? window.innerWidth;
+  const height = vv?.height ?? window.innerHeight;
+  const offsetTop = vv?.offsetTop ?? 0;
+  const offsetLeft = vv?.offsetLeft ?? 0;
+  const rightInset = Math.max(0, window.innerWidth - width - offsetLeft);
+  const bottomInset = Math.max(0, window.innerHeight - height - offsetTop);
+
+  const rootStyle = cssRoot().style;
+  rootStyle.setProperty('--app-vw', `${width}px`);
+  rootStyle.setProperty('--app-vh', `${height}px`);
+  rootStyle.setProperty('--app-safe-top', `${offsetTop}px`);
+  rootStyle.setProperty('--app-safe-left', `${offsetLeft}px`);
+  rootStyle.setProperty('--app-safe-right', `${rightInset}px`);
+  rootStyle.setProperty('--app-safe-bottom', `${bottomInset}px`);
+};
+
+const setupViewportWatcher = () => {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handler = () => updateViewportVars();
+  handler();
+
+  window.addEventListener('resize', handler, { passive: true });
+  window.addEventListener('orientationchange', handler);
+  const vv = window.visualViewport;
+  if (vv) {
+    vv.addEventListener('resize', handler, { passive: true });
+    vv.addEventListener('scroll', handler, { passive: true });
+  }
+
+  return () => {
+    window.removeEventListener('resize', handler);
+    window.removeEventListener('orientationchange', handler);
+    if (vv) {
+      vv.removeEventListener('resize', handler);
+      vv.removeEventListener('scroll', handler);
+    }
+  };
+};
+
 // 기본 화면은 세로 모드 유지
 ensureOrientation('portrait');
+const teardownViewportWatcher = setupViewportWatcher();
 
 type AudioFocusEvent = { hasAudioFocus: boolean };
 
@@ -106,6 +157,7 @@ if (gameRoot) {
   window.addEventListener('beforeunload', () => {
     ensureOrientation('portrait');
   });
+  window.addEventListener('pagehide', () => teardownViewportWatcher?.());
 } else {
   console.error('game-root 엘리먼트를 찾을 수 없습니다.');
 }
