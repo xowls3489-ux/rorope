@@ -6,6 +6,7 @@ export class SoundSystem {
   private masterVolume: number = 0.5;
   private isMuted: boolean = false;
   private audioContextUnlocked: boolean = false;
+  private focusPausedSounds: Set<string> = new Set();
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
   // 사운드별 최소 재생 간격(ms) - 이 간격 내에서는 재생 안 함
@@ -303,6 +304,7 @@ export class SoundSystem {
     this.isMuted = muted;
     if (muted) {
       this.sounds.forEach(sound => sound.volume(0));
+      this.focusPausedSounds.clear();
     } else {
       this.sounds.forEach(sound => sound.volume(this.masterVolume));
     }
@@ -342,6 +344,49 @@ export class SoundSystem {
     this.sounds.forEach(sound => {
       sound.stop();
     });
+    this.focusPausedSounds.clear();
+  }
+
+  private shouldAutoResume(name: string): boolean {
+    return name === 'background' || name === 'titleBgm' || name === 'swing';
+  }
+
+  pauseForFocusLoss(): void {
+    this.focusPausedSounds.clear();
+    this.sounds.forEach((sound, name) => {
+      if (sound.playing()) {
+        try {
+          sound.pause();
+          if (this.shouldAutoResume(name)) {
+            this.focusPausedSounds.add(name);
+          }
+        } catch (error) {
+          console.warn('Failed to pause sound on focus loss:', name, error);
+        }
+      }
+    });
+  }
+
+  resumeAfterFocusGain(): void {
+    if (this.isMuted) {
+      this.focusPausedSounds.clear();
+      return;
+    }
+
+    this.focusPausedSounds.forEach(name => {
+      const sound = this.sounds.get(name);
+      if (!sound) {
+        return;
+      }
+      try {
+        if (!sound.playing()) {
+          sound.play();
+        }
+      } catch (error) {
+        console.warn('Failed to resume sound after focus gain:', name, error);
+      }
+    });
+    this.focusPausedSounds.clear();
   }
 }
 

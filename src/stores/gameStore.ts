@@ -221,6 +221,19 @@ export const gameActions = {
     ropeState.setKey('anchorY', y);
   },
 
+  resetRecords: () => {
+    try {
+      localStorage.removeItem('rorope_highScore');
+      localStorage.removeItem('rorope_maxCombo');
+    } catch (e) {
+      console.warn('기록 초기화 중 로컬스토리지 접근 실패:', e);
+    }
+
+    gameState.setKey('highScore', 0);
+    gameState.setKey('maxCombo', 0);
+    gameState.setKey('isNewRecord', false);
+  },
+
   attachRope: (x: number, y: number, length: number) => {
     ropeState.setKey('anchorX', x);
     ropeState.setKey('anchorY', y);

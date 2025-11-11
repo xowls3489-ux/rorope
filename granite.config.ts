@@ -5,7 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '바밧줄',
     primaryColor: '#FF6F61',
-    icon: 'https://example.com/icon.png',
+    icon: 'https://raw.githubusercontent.com/xowls3489-ux/icon/main/rorope-icon_512x512.png',
     bridgeColorMode: 'inverted',
   },
   navigationBar: {

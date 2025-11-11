@@ -77,6 +77,7 @@ export class GameScene {
     // 슬로우 모션 및 무적 모드
     private slowMotionEndTime: number = 0;
     private invincibleEndTime: number = 0;
+    private tutorialRequestedFromPause: boolean = false;
 
     constructor() {
         this.init();
@@ -134,8 +135,12 @@ export class GameScene {
         this.uiManager.setPauseCallbacks(
             () => this.pauseGame(),
             () => this.resumeGame(),
-            (enabled: boolean) => this.toggleSound(enabled)
+            (enabled: boolean) => this.toggleSound(enabled),
+            () => this.requestTutorialReplay(),
+            () => this.handleResetRecords()
         );
+
+        window.addEventListener('tutorial-dismissed', this.handleTutorialDismissed);
 
         // 배경, 플랫폼 풀, 게임 오브젝트, 입력 초기화
         await this.initBackground();
@@ -1446,6 +1451,7 @@ export class GameScene {
     private resumeGame(): void {
         gameActions.resumeGame();
         this.uiManager.hidePausePanel();
+        this.tutorialRequestedFromPause = false;
         
         // 배경음 볼륨 복구
         this.audioManager.setBackgroundVolume(0.15);
@@ -1458,5 +1464,28 @@ export class GameScene {
         this.audioManager.setMuted(!enabled);
         console.log('사운드 토글:', enabled ? '켜짐' : '꺼짐');
     }
+
+    private handleResetRecords(): void {
+        const confirmed = window.confirm('정말로 최고 기록과 최고 콤보를 초기화할까요?');
+        if (!confirmed) {
+            return;
+        }
+        gameActions.resetRecords();
+        console.log('최고 기록 초기화 완료');
+    }
+
+    private requestTutorialReplay(): void {
+        this.tutorialRequestedFromPause = true;
+        this.uiManager.hidePausePanel();
+        window.dispatchEvent(new CustomEvent('tutorial-show', { detail: { mode: 'replay' } }));
+    }
+
+    private handleTutorialDismissed = (event: Event): void => {
+        const detail = (event as CustomEvent<{ mode?: 'intro' | 'replay' }>).detail;
+        if (detail?.mode === 'replay' && this.tutorialRequestedFromPause) {
+            this.tutorialRequestedFromPause = false;
+            this.resumeGame();
+        }
+    };
 }
 
