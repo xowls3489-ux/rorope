@@ -257,20 +257,19 @@ export class UIManager {
         this.gameOverOverlay.endFill();
         
         // 메인 카드 배경 (모바일 대응 - 화면 크기에 맞춤)
-        const cardWidth = Math.min(320, safeWidth * 0.9);
-        // 신기록 여부와 모바일 여부에 따라 높이 조정
+        const cardWidth = Math.min(Math.max(260, safeWidth * 0.85), safeWidth - 24);
         let cardHeightBase: number;
         if (isNewRecord && isPortrait) {
-            cardHeightBase = isSmallHeight ? 320 : 340;
+            cardHeightBase = Math.min(safeHeight * 0.72, isSmallHeight ? 340 : 360);
         } else if (isNewRecord) {
-            cardHeightBase = 300;
+            cardHeightBase = Math.min(safeHeight * 0.66, 320);
         } else if (isPortrait) {
             cardHeightBase = isSmallHeight ? 260 : 280;
         } else {
             cardHeightBase = 260;
         }
-        const minimumCardHeight = isPortrait ? 220 : 240;
-        const maxCardHeight = Math.max(200, safeHeight - 160);
+        const minimumCardHeight = isPortrait ? 240 : 260;
+        const maxCardHeight = Math.max(260, safeHeight * 0.82);
         const cardHeight = Math.max(minimumCardHeight, Math.min(cardHeightBase, maxCardHeight));
         const verticalOffset = isPortrait ? 20 : 40;
         const cardLeft = left + Math.max(20, (safeWidth - cardWidth) / 2);
@@ -288,25 +287,24 @@ export class UIManager {
         );
         this.gameOverBg.endFill();
         
-        // 타이틀 위치 (동적 조정)
-        const baseTitleOffset = isPortrait ? (isSmallHeight ? 24 : 28) : 32;
-        const badgeYOffset = isNewRecord ? (isPortrait ? 16 : 18) : 0;
-        const titleCenterY = cardTop + baseTitleOffset + badgeYOffset;
+        const contentMargin = Math.max(20, cardHeight * 0.08);
+        let layoutCursor = contentMargin;
+        const titleBlockHeight = Math.max(36, cardHeight * 0.15);
+        const titleCenterY = cardTop + layoutCursor + titleBlockHeight / 2;
+        layoutCursor += titleBlockHeight;
         this.gameOverTitle.x = centerX;
         this.gameOverTitle.y = titleCenterY;
         
-        // 타이틀 폰트 크기도 모바일에서 작게
         this.gameOverTitle.style.fontSize = isMobile ? 28 : 40;
         
-        // 본문 레이아웃 시작 위치
-        const baseStatsOffset = isPortrait ? (isSmallHeight ? 60 : 70) : 86;
-        const statsTop = cardTop + baseStatsOffset + badgeYOffset;
+        const spacingSmall = Math.max(12, cardHeight * 0.04);
+        const spacingMedium = Math.max(16, cardHeight * 0.05);
         
         // 신기록 배지
         this.newRecordBadge.removeChildren();
         if (isNewRecord) {
             const badgeWidth = isPortrait ? 140 : 160;
-            const badgeHeight = isPortrait ? 35 : 40;
+            const badgeHeight = isPortrait ? 40 : 44;
             
             const badgeBg = new PIXI.Graphics();
             badgeBg.beginFill(0xFFD700, 1);
@@ -325,12 +323,18 @@ export class UIManager {
             this.newRecordBadge.addChild(badgeBg);
             this.newRecordBadge.addChild(badgeText);
             this.newRecordBadge.x = centerX;
-            this.newRecordBadge.y = titleCenterY + (isPortrait ? 42 : 48);
+            this.newRecordBadge.y = cardTop + layoutCursor + badgeHeight / 2;
             this.newRecordBadge.visible = true;
+            layoutCursor += badgeHeight + spacingSmall;
             
         } else {
             this.newRecordBadge.visible = false;
         }
+        
+        const statsBoxHeight = GAME_CONFIG.height < 800 ? 95 : 120;
+        const statsTop = cardTop + layoutCursor;
+        layoutCursor += statsBoxHeight;
+        layoutCursor += spacingMedium;
         
         // 점수 박스
         this.scoreBox.removeChildren();
@@ -365,10 +369,10 @@ export class UIManager {
         const btnWidth = cardWidth - 80;
         const btnHeight = isMobile ? 48 : 56;
         const btnX = cardLeft + (cardWidth - btnWidth) / 2;
-        const statsRowHeight = isPortrait ? (isSmallHeight ? 70 : 80) : 90;
-        const buttonBottomMargin = isPortrait ? 20 : 28;
-        const minButtonY = statsTop + statsRowHeight + 12;
-        const btnY = Math.max(minButtonY, cardTop + cardHeight - btnHeight - buttonBottomMargin);
+        layoutCursor += spacingSmall;
+        const maxButtonOffset = cardHeight - contentMargin - btnHeight;
+        const btnOffset = Math.min(layoutCursor, maxButtonOffset);
+        const btnY = cardTop + btnOffset;
         
         const btnBg = new PIXI.Graphics();
         btnBg.lineStyle(2, 0xFFFFFF, 1);
@@ -812,12 +816,18 @@ export class UIManager {
             this.pauseOverlay.endFill();
         }
 
-        if (this.pauseContent && this.pausePanelBg && this.soundToggleBtn && this.resumeBtn && this.tutorialBtn) {
+        if (
+            this.pauseContent &&
+            this.pausePanelBg &&
+            this.soundToggleBtn &&
+            this.resumeBtn &&
+            this.tutorialBtn &&
+            this.resetRecordsBtn
+        ) {
             const availableWidth = Math.max(200, width - left - right);
             const availableHeight = Math.max(200, height - top - bottom);
-
             const panelWidth = Math.min(380, availableWidth - 40);
-            const panelHeight = Math.min(320, availableHeight - 40);
+            const panelHeight = Math.min(420, Math.max(availableHeight - 12, 280));
             const contentX = left + (availableWidth - panelWidth) / 2;
             const contentY = top + (availableHeight - panelHeight) / 2;
 
@@ -833,20 +843,27 @@ export class UIManager {
             this.pauseTitleText.y = Math.min(30, panelHeight * 0.1);
 
             const buttonWidth = panelWidth - 40;
-            const buttonHeight = Math.min(60, Math.max(48, panelHeight * 0.18));
-            const tutorialHeight = Math.min(56, Math.max(46, panelHeight * 0.17));
-            const resetHeight = Math.min(52, Math.max(44, panelHeight * 0.16));
+            const soundHeight = Math.min(60, Math.max(48, panelHeight * 0.2));
+            const tutorialHeight = Math.min(58, Math.max(46, panelHeight * 0.18));
+            const resetHeight = Math.min(54, Math.max(44, panelHeight * 0.17));
+            const resumeHeight = soundHeight;
+
+            const spacingAfterTitle = Math.max(20, panelHeight * 0.08);
+            const spacingPrimary = Math.max(16, panelHeight * 0.05);
+            const spacingSecondary = Math.max(12, panelHeight * 0.04);
+            const spacingBeforeResume = Math.max(16, panelHeight * 0.05);
+            const bottomPadding = Math.max(18, panelHeight * 0.06);
 
             this.soundBtnBg.clear();
             this.soundBtnBg.lineStyle(2, 0x666666, 1);
             this.soundBtnBg.beginFill(0x2a2a2a, 1);
-            this.soundBtnBg.drawRoundedRect(0, 0, buttonWidth, buttonHeight, 12);
+            this.soundBtnBg.drawRoundedRect(0, 0, buttonWidth, soundHeight, 12);
             this.soundBtnBg.endFill();
 
             this.soundToggleBtn.x = 20;
-            this.soundToggleBtn.y = this.pauseTitleText.y + this.pauseTitleText.height + 30;
+            this.soundToggleBtn.y = this.pauseTitleText.y + this.pauseTitleText.height + spacingAfterTitle;
             this.soundBtnText.x = buttonWidth / 2;
-            this.soundBtnText.y = buttonHeight / 2;
+            this.soundBtnText.y = soundHeight / 2;
 
             this.tutorialBtnBg.clear();
             this.tutorialBtnBg.lineStyle(2, 0x3182F6, 1);
@@ -855,7 +872,7 @@ export class UIManager {
             this.tutorialBtnBg.endFill();
 
             this.tutorialBtn.x = 20;
-            this.tutorialBtn.y = this.soundToggleBtn.y + buttonHeight + 16;
+            this.tutorialBtn.y = this.soundToggleBtn.y + soundHeight + spacingPrimary;
             this.tutorialBtnText.x = buttonWidth / 2;
             this.tutorialBtnText.y = tutorialHeight / 2;
 
@@ -866,20 +883,29 @@ export class UIManager {
             this.resetRecordsBg.endFill();
 
             this.resetRecordsBtn.x = 20;
-            this.resetRecordsBtn.y = this.tutorialBtn.y + tutorialHeight + 12;
+            this.resetRecordsBtn.y = this.tutorialBtn.y + tutorialHeight + spacingSecondary;
             this.resetRecordsText.x = buttonWidth / 2;
             this.resetRecordsText.y = resetHeight / 2;
 
             this.resumeBtnBg.clear();
             this.resumeBtnBg.lineStyle(2, 0xFFFFFF, 1);
             this.resumeBtnBg.beginFill(0x333333, 1);
-            this.resumeBtnBg.drawRoundedRect(0, 0, buttonWidth, buttonHeight, 12);
+            this.resumeBtnBg.drawRoundedRect(0, 0, buttonWidth, resumeHeight, 12);
             this.resumeBtnBg.endFill();
 
             this.resumeBtn.x = 20;
-            this.resumeBtn.y = this.resetRecordsBtn.y + resetHeight + 16;
+            this.resumeBtn.y = this.resetRecordsBtn.y + resetHeight + spacingBeforeResume;
             this.resumeBtnText.x = buttonWidth / 2;
-            this.resumeBtnText.y = buttonHeight / 2;
+            this.resumeBtnText.y = resumeHeight / 2;
+
+            const bottomExtent = this.resumeBtn.y + resumeHeight + bottomPadding;
+            if (bottomExtent > panelHeight) {
+                const shift = bottomExtent - panelHeight;
+                this.soundToggleBtn.y = Math.max(this.pauseTitleText.y + this.pauseTitleText.height + 12, this.soundToggleBtn.y - shift);
+                this.tutorialBtn.y = Math.max(this.soundToggleBtn.y + soundHeight + 8, this.tutorialBtn.y - shift);
+                this.resetRecordsBtn.y = Math.max(this.tutorialBtn.y + tutorialHeight + 6, this.resetRecordsBtn.y - shift);
+                this.resumeBtn.y = Math.max(this.resetRecordsBtn.y + resetHeight + 8, this.resumeBtn.y - shift);
+            }
         }
 
         this.updateGameOverPosition();
