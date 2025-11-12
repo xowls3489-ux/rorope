@@ -6,6 +6,7 @@ import { vfxSystem } from '../systems/vfxSystem';
 import { GAME_CONFIG, COLORS } from '../core/config';
 import { UIManager } from './UIManager';
 import { AudioManager } from './AudioManager';
+import { submitGameCenterLeaderBoardScore, isMinVersionSupported } from '@apps-in-toss/web-framework';
 
 interface PlayerGraphics extends PIXI.Graphics {
     isOnPlatform?: boolean;
@@ -1306,6 +1307,38 @@ export class GameScene {
         platforms.set(activePlatforms);
     }
 
+    /**
+     * 토스 리더보드에 점수 제출
+     */
+    private async submitScoreToLeaderboard(score: number): Promise<void> {
+        try {
+            // 리더보드 지원 여부 확인
+            const isSupported = isMinVersionSupported({
+                android: "5.221.0",
+                ios: "5.221.0",
+            });
+
+            if (!isSupported) {
+                console.log('리더보드를 지원하지 않는 토스 앱 버전입니다.');
+                return;
+            }
+
+            // 점수를 문자열로 변환하여 제출
+            const result = await submitGameCenterLeaderBoardScore({ score: score.toString() });
+
+            if (result?.statusCode === 'SUCCESS') {
+                console.log('✅ 리더보드 점수 제출 성공:', score);
+            } else if (result === undefined) {
+                console.log('⚠️ 리더보드 지원하지 않음 (낮은 앱 버전)');
+            } else {
+                console.warn('⚠️ 리더보드 점수 제출 실패:', result);
+            }
+        } catch (error) {
+            // 브라우저 환경이거나 미니앱 승인 전일 수 있음
+            console.log('리더보드 점수 제출 건너뜀 (브라우저 또는 승인 전):', error);
+        }
+    }
+
     private checkGameOver(): void {
         const playerPos = playerState.get();
         
@@ -1336,30 +1369,33 @@ export class GameScene {
                 outTop,
                 outLeft,
             });
-            
+
             // 최종 점수 계산 (미터 단위)
             const finalScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
-            
+
+            // 토스 리더보드에 점수 제출
+            this.submitScoreToLeaderboard(finalScore);
+
             gameActions.endGame(finalScore); // 실제 점수 전달
             gameActions.resetCombo();
             this.uiManager.onGameOver();
-            
+
             // 배경음 페이드 아웃 후 게임오버 사운드 재생
             this.audioManager.fadeOutBackground(500);
             setTimeout(() => {
                 this.audioManager.playGameOver();
             }, 300);
-            
+
             // 신기록 달성 시 축하 효과
             const game = gameState.get();
             if (game.isNewRecord) {
                 const centerX = GAME_CONFIG.width / 2;
                 const centerY = GAME_CONFIG.height / 2;
-                
+
                 // 대폭발 파티클 효과
                 vfxSystem.spawnComboParticleBurst(centerX, centerY, 20);
                 vfxSystem.spawnComboShockwave(centerX, centerY, 20);
-                
+
                 console.log('🎉 신기록 달성!');
             }
         }
