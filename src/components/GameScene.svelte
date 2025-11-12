@@ -3,6 +3,7 @@
   import { initGameManager } from '../core/GameManager';
   import PauseModal from './PauseModal.svelte';
   import GameOverModal from './GameOverModal.svelte';
+  import { userManager } from '../managers/UserManager';
 
   type GameOverOverlayState = {
     open: boolean;
@@ -45,7 +46,7 @@
   };
 
   const dismissTutorial = async () => {
-    localStorage.setItem('tutorialSeen_v1', 'true');
+    userManager.saveData('tutorialSeen_v1', 'true');
     showTutorial = false;
 
     if (tutorialMode === 'intro') {
@@ -150,12 +151,12 @@
       window.addEventListener('game-ui:gameover-close', handleGameOverCloseEvent as EventListener);
 
       try {
-        pauseSoundEnabled = localStorage.getItem('soundMuted') !== 'true';
+        pauseSoundEnabled = userManager.loadData('soundMuted') !== 'true';
       } catch {
         pauseSoundEnabled = true;
       }
 
-      const tutorialSeen = localStorage.getItem('tutorialSeen_v1') === 'true';
+      const tutorialSeen = userManager.loadData('tutorialSeen_v1') === 'true';
       if (tutorialSeen) {
         await startGame();
       } else {

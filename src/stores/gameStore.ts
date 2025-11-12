@@ -1,5 +1,6 @@
 import { atom, map } from 'nanostores';
 import * as PIXI from 'pixi.js';
+import { userManager } from '../managers/UserManager';
 
 // 게임 상태 인터페이스
 export interface GameState {
@@ -49,39 +50,21 @@ export interface RopeState {
   pullSpeed?: number;
 }
 
-// localStorage 헬퍼 함수 (스토어 초기화 전에 선언 필요)
+// localStorage 헬퍼 함수 (사용자별 저장을 위해 UserManager 사용)
 const loadHighScore = (): number => {
-  try {
-    const saved = localStorage.getItem('rorope_highScore');
-    return saved ? parseInt(saved, 10) : 0;
-  } catch {
-    return 0;
-  }
+  return userManager.loadNumber('rorope_highScore', 0);
 };
 
 const loadMaxCombo = (): number => {
-  try {
-    const saved = localStorage.getItem('rorope_maxCombo');
-    return saved ? parseInt(saved, 10) : 0;
-  } catch {
-    return 0;
-  }
+  return userManager.loadNumber('rorope_maxCombo', 0);
 };
 
 const saveHighScore = (score: number): void => {
-  try {
-    localStorage.setItem('rorope_highScore', score.toString());
-  } catch (e) {
-    console.warn('최고 점수 저장 실패:', e);
-  }
+  userManager.saveData('rorope_highScore', score);
 };
 
 const saveMaxCombo = (combo: number): void => {
-  try {
-    localStorage.setItem('rorope_maxCombo', combo.toString());
-  } catch (e) {
-    console.warn('최고 콤보 저장 실패:', e);
-  }
+  userManager.saveData('rorope_maxCombo', combo);
 };
 
 // 게임 상태 스토어
@@ -222,12 +205,8 @@ export const gameActions = {
   },
 
   resetRecords: () => {
-    try {
-      localStorage.removeItem('rorope_highScore');
-      localStorage.removeItem('rorope_maxCombo');
-    } catch (e) {
-      console.warn('기록 초기화 중 로컬스토리지 접근 실패:', e);
-    }
+    userManager.removeData('rorope_highScore');
+    userManager.removeData('rorope_maxCombo');
 
     gameState.setKey('highScore', 0);
     gameState.setKey('maxCombo', 0);

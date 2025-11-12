@@ -3,6 +3,7 @@ import { getSafeAreaInsets as fetchSafeAreaInsets } from '@apps-in-toss/web-fram
 import { gameState } from '../stores/gameStore';
 import { GAME_CONFIG, COLORS } from '../core/config';
 import { animationSystem } from '../systems/animationSystem';
+import { userManager } from './UserManager';
 
 /**
  * UIManager
@@ -121,7 +122,7 @@ export class UIManager {
         this.initPauseUI();
 
         try {
-            const storedMuted = localStorage.getItem('soundMuted') === 'true';
+            const storedMuted = userManager.loadData('soundMuted') === 'true';
             this.applySoundSetting(!storedMuted, { skipCallback: true, emitEvent: false });
         } catch (error) {
             console.warn('Failed to read soundMuted setting', error);
@@ -756,7 +757,7 @@ export class UIManager {
         }
 
         try {
-            localStorage.setItem('soundMuted', (!enabled).toString());
+            userManager.saveData('soundMuted', (!enabled).toString());
         } catch (error) {
             console.warn('Failed to persist soundMuted setting', error);
         }

@@ -2,14 +2,15 @@
   import { onMount, onDestroy } from 'svelte';
   import { sceneActions } from '../stores/sceneStore';
   import { soundSystem } from '../systems/soundSystem';
+  import { userManager } from '../managers/UserManager';
 
   let soundEnabled = true;
   let audioUnlocked = false;
 
-  // localStorage에서 사운드 설정 불러오기
+  // 사용자별 사운드 설정 불러오기
   onMount(async () => {
-    const savedSoundMuted = localStorage.getItem('soundMuted');
-    if (savedSoundMuted !== null) {
+    const savedSoundMuted = userManager.loadData('soundMuted');
+    if (savedSoundMuted !== '') {
       soundEnabled = savedSoundMuted === 'false'; // muted false = enabled true
       soundSystem.setMuted(!soundEnabled);
     }
@@ -49,8 +50,8 @@
   function toggleSound() {
     soundEnabled = !soundEnabled;
     soundSystem.setMuted(!soundEnabled);
-    // localStorage에 저장 (soundMuted 키로 통일)
-    localStorage.setItem('soundMuted', (!soundEnabled).toString());
+    // 사용자별 사운드 설정 저장
+    userManager.saveData('soundMuted', (!soundEnabled).toString());
     console.log('사운드 토글:', soundEnabled ? '켜짐' : '꺼짐');
     
     // 사운드 켜짐: 타이틀 배경음 재생

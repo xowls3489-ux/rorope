@@ -1,4 +1,5 @@
 import { soundSystem } from '../systems/soundSystem';
+import { userManager } from './UserManager';
 
 /**
  * AudioManager
@@ -13,18 +14,18 @@ export class AudioManager {
     }
 
     /**
-     * localStorage에서 사운드 설정 불러오기
+     * 사용자별 사운드 설정 불러오기
      */
     private loadSettings(): void {
-        const savedMuted = localStorage.getItem('soundMuted');
-        const savedVolume = localStorage.getItem('soundVolume');
+        const savedMuted = userManager.loadData('soundMuted');
+        const savedVolume = userManager.loadData('soundVolume');
 
-        if (savedMuted !== null) {
+        if (savedMuted !== '') {
             this.isMuted = savedMuted === 'true';
             soundSystem.setMuted(this.isMuted);
         }
 
-        if (savedVolume !== null) {
+        if (savedVolume !== '') {
             this.volume = parseFloat(savedVolume);
             soundSystem.setVolume(this.volume);
         }
@@ -57,7 +58,7 @@ export class AudioManager {
     public setMuted(muted: boolean): void {
         this.isMuted = muted;
         soundSystem.setMuted(muted);
-        localStorage.setItem('soundMuted', muted.toString());
+        userManager.saveData('soundMuted', muted.toString());
     }
 
     /**
@@ -80,7 +81,7 @@ export class AudioManager {
     public setVolume(volume: number): void {
         this.volume = Math.max(0, Math.min(1, volume));
         soundSystem.setVolume(this.volume);
-        localStorage.setItem('soundVolume', this.volume.toString());
+        userManager.saveData('soundVolume', this.volume.toString());
     }
 
     /**

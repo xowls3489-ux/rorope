@@ -1,4 +1,5 @@
 import { Howl, Howler } from 'howler';
+import { userManager } from '../managers/UserManager';
 
 // 사운드 효과 클래스
 export class SoundSystem {
@@ -29,10 +30,10 @@ export class SoundSystem {
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
-    
-    // localStorage에서 사운드 설정 불러오기 (soundMuted 키로 통일)
-    const savedSoundMuted = localStorage.getItem('soundMuted');
-    if (savedSoundMuted !== null) {
+
+    // 사용자별 사운드 설정 불러오기
+    const savedSoundMuted = userManager.loadData('soundMuted');
+    if (savedSoundMuted !== '') {
       this.isMuted = savedSoundMuted === 'true';
     }
   }

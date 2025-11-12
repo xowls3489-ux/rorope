@@ -53,26 +53,27 @@
     align-items: center;
     justify-content: center;
     padding:
-      calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + clamp(16px, calc(var(--app-vh, 100vh) * 0.04), 36px))
-      calc(var(--app-safe-right, env(safe-area-inset-right, 0px)) + clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 36px))
-      calc(var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) + clamp(16px, calc(var(--app-vh, 100vh) * 0.04), 36px))
-      calc(var(--app-safe-left, env(safe-area-inset-left, 0px)) + clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 36px));
+      calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 24px))
+      calc(var(--app-safe-right, env(safe-area-inset-right, 0px)) + clamp(12px, calc(var(--app-vw, 100vw) * 0.025), 24px))
+      calc(var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) + clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 24px))
+      calc(var(--app-safe-left, env(safe-area-inset-left, 0px)) + clamp(12px, calc(var(--app-vw, 100vw) * 0.025), 24px));
     background: rgba(10, 10, 12, 0.8);
     backdrop-filter: blur(0.6rem);
   }
 
   .modal-card {
-    width: min(calc(var(--app-vw, 100vw) * 0.72), 360px);
+    width: min(calc(var(--app-vw, 100vw) * 0.85), 360px);
     max-width: 360px;
-    max-height: min(calc(var(--app-vh, 100vh) * 0.9), 90%);
+    max-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: clamp(16px, calc(var(--app-vh, 100vh) * 0.035), 28px);
-    padding: clamp(20px, calc(var(--app-vw, 100vw) * 0.06), 36px);
-    border-radius: clamp(18px, calc(var(--app-vw, 100vw) * 0.045), 26px);
+    gap: clamp(12px, calc(var(--app-vh, 100vh) * 0.02), 18px);
+    padding: clamp(16px, calc(var(--app-vw, 100vw) * 0.045), 28px);
+    border-radius: clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 24px);
     background: rgba(20, 20, 26, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: var(--pause-modal-shadow);
+    overflow-y: auto;
   }
 
   .modal-header,
@@ -81,7 +82,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(1rem, 3vw, 1.5rem);
+    gap: clamp(0.65rem, 2.5vw, 1rem);
   }
 
   .modal-title {
@@ -91,20 +92,20 @@
     letter-spacing: -0.02em;
     color: #ffffff;
     text-transform: uppercase;
-    font-size: clamp(1.35rem, calc(var(--app-vw, 100vw) * 0.055), 2.1rem);
+    font-size: clamp(1.2rem, calc(var(--app-vw, 100vw) * 0.048), 1.8rem);
   }
 
   .modal-button {
-    width: min(calc(var(--app-vw, 100vw) * 0.66), 320px);
+    width: 100%;
     max-width: 100%;
-    padding: clamp(14px, calc(var(--app-vh, 100vh) * 0.04), 22px);
-    border-radius: clamp(12px, calc(var(--app-vw, 100vw) * 0.035), 18px);
+    padding: clamp(10px, calc(var(--app-vh, 100vh) * 0.025), 16px);
+    border-radius: clamp(10px, calc(var(--app-vw, 100vw) * 0.028), 14px);
     border: 1px solid rgba(255, 255, 255, 0.4);
     background: rgba(40, 40, 48, 0.85);
     color: #ffffff;
     font-family: 'Pretendard', 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
     font-weight: 700;
-    font-size: clamp(0.95rem, calc(var(--app-vw, 100vw) * 0.035), 1.15rem);
+    font-size: clamp(0.82rem, calc(var(--app-vw, 100vw) * 0.03), 1rem);
     letter-spacing: 0.01em;
     text-align: center;
     cursor: pointer;
@@ -150,8 +151,13 @@
 
   @media (max-height: 640px) {
     .modal-card {
-      gap: clamp(14px, calc(var(--app-vh, 100vh) * 0.03), 24px);
-      padding: clamp(18px, calc(var(--app-vw, 100vw) * 0.055), 32px);
+      gap: clamp(10px, calc(var(--app-vh, 100vh) * 0.02), 16px);
+      padding: clamp(14px, calc(var(--app-vw, 100vw) * 0.04), 24px);
+    }
+
+    .modal-button {
+      padding: clamp(8px, calc(var(--app-vh, 100vh) * 0.02), 12px);
+      font-size: clamp(0.75rem, calc(var(--app-vw, 100vw) * 0.028), 0.9rem);
     }
   }
 </style>

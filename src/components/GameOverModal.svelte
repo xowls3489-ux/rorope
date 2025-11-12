@@ -60,27 +60,28 @@
     align-items: center;
     justify-content: center;
     padding:
-      calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + clamp(16px, calc(var(--app-vh, 100vh) * 0.04), 40px))
-      calc(var(--app-safe-right, env(safe-area-inset-right, 0px)) + clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 40px))
-      calc(var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) + clamp(16px, calc(var(--app-vh, 100vh) * 0.04), 40px))
-      calc(var(--app-safe-left, env(safe-area-inset-left, 0px)) + clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 40px));
+      calc(var(--app-safe-top, env(safe-area-inset-top, 0px)) + clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 24px))
+      calc(var(--app-safe-right, env(safe-area-inset-right, 0px)) + clamp(12px, calc(var(--app-vw, 100vw) * 0.025), 24px))
+      calc(var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) + clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 24px))
+      calc(var(--app-safe-left, env(safe-area-inset-left, 0px)) + clamp(12px, calc(var(--app-vw, 100vw) * 0.025), 24px));
     background: rgba(0, 0, 0, 0.78);
     backdrop-filter: blur(0.7rem);
   }
 
   .modal-card {
-    width: min(calc(var(--app-vw, 100vw) * 0.75), 360px);
+    width: min(calc(var(--app-vw, 100vw) * 0.85), 360px);
     max-width: 360px;
-    max-height: min(calc(var(--app-vh, 100vh) * 0.9), 90%);
-    padding: clamp(24px, calc(var(--app-vw, 100vw) * 0.07), 40px);
-    border-radius: clamp(20px, calc(var(--app-vw, 100vw) * 0.05), 28px);
+    max-height: 100%;
+    padding: clamp(16px, calc(var(--app-vw, 100vw) * 0.045), 28px);
+    border-radius: clamp(16px, calc(var(--app-vw, 100vw) * 0.04), 24px);
     background: rgba(22, 22, 28, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: var(--gameover-shadow);
     display: flex;
     flex-direction: column;
-    gap: clamp(18px, calc(var(--app-vh, 100vh) * 0.04), 32px);
+    gap: clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 20px);
     align-items: center;
+    overflow-y: auto;
   }
 
   .modal-header {
@@ -88,7 +89,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(14px, calc(var(--app-vh, 100vh) * 0.03), 20px);
+    gap: clamp(8px, calc(var(--app-vh, 100vh) * 0.015), 14px);
     text-align: center;
   }
 
@@ -99,17 +100,17 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #ffffff;
-    font-size: clamp(1.55rem, calc(var(--app-vw, 100vw) * 0.06), 2.2rem);
+    font-size: clamp(1.3rem, calc(var(--app-vw, 100vw) * 0.055), 2rem);
   }
 
   .record-badge {
     margin: 0;
-    padding: clamp(8px, calc(var(--app-vw, 100vw) * 0.025), 14px) clamp(18px, calc(var(--app-vw, 100vw) * 0.035), 26px);
-    border-radius: clamp(14px, calc(var(--app-vw, 100vw) * 0.035), 22px);
+    padding: clamp(6px, calc(var(--app-vw, 100vw) * 0.02), 10px) clamp(14px, calc(var(--app-vw, 100vw) * 0.03), 20px);
+    border-radius: clamp(12px, calc(var(--app-vw, 100vw) * 0.03), 18px);
     background: linear-gradient(135deg, #f7ce46 0%, #ffd867 100%);
     color: #2c2300;
     font-weight: 700;
-    font-size: clamp(0.85rem, calc(var(--app-vw, 100vw) * 0.033), 1rem);
+    font-size: clamp(0.75rem, calc(var(--app-vw, 100vw) * 0.028), 0.9rem);
     box-shadow: 0 0.35rem 0.9rem rgba(247, 206, 70, 0.36);
   }
 
@@ -117,19 +118,19 @@
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(16px, calc(var(--app-vw, 100vw) * 0.035), 24px);
+    gap: clamp(10px, calc(var(--app-vw, 100vw) * 0.025), 16px);
   }
 
   .stat-card {
-    padding: clamp(18px, calc(var(--app-vw, 100vw) * 0.035), 26px);
-    border-radius: clamp(16px, calc(var(--app-vw, 100vw) * 0.036), 22px);
+    padding: clamp(12px, calc(var(--app-vw, 100vw) * 0.03), 18px);
+    border-radius: clamp(12px, calc(var(--app-vw, 100vw) * 0.03), 16px);
     background: rgba(32, 32, 40, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.12);
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(6px, calc(var(--app-vh, 100vh) * 0.015), 12px);
+    gap: clamp(4px, calc(var(--app-vh, 100vh) * 0.01), 8px);
   }
 
   .stat-label {
@@ -138,7 +139,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     color: rgba(255, 255, 255, 0.7);
-    font-size: clamp(0.75rem, calc(var(--app-vw, 100vw) * 0.028), 0.95rem);
+    font-size: clamp(0.7rem, calc(var(--app-vw, 100vw) * 0.025), 0.85rem);
   }
 
   .stat-value {
@@ -146,13 +147,13 @@
     font-family: 'Pretendard', 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
     font-weight: 800;
     color: #ffffff;
-    font-size: clamp(1.35rem, calc(var(--app-vw, 100vw) * 0.055), 2.05rem);
+    font-size: clamp(1.2rem, calc(var(--app-vw, 100vw) * 0.048), 1.8rem);
   }
 
   .stat-sub {
     margin: 0;
     color: rgba(255, 255, 255, 0.55);
-    font-size: clamp(0.75rem, calc(var(--app-vw, 100vw) * 0.028), 0.95rem);
+    font-size: clamp(0.7rem, calc(var(--app-vw, 100vw) * 0.025), 0.85rem);
   }
 
   .modal-footer {
@@ -162,10 +163,10 @@
   }
 
   .modal-button {
-    width: min(calc(var(--app-vw, 100vw) * 0.66), 320px);
+    width: 100%;
     max-width: 100%;
-    padding: clamp(16px, calc(var(--app-vh, 100vh) * 0.04), 22px);
-    border-radius: clamp(15px, calc(var(--app-vw, 100vw) * 0.038), 20px);
+    padding: clamp(12px, calc(var(--app-vh, 100vh) * 0.025), 16px);
+    border-radius: clamp(12px, calc(var(--app-vw, 100vw) * 0.03), 16px);
     border: 1px solid rgba(255, 255, 255, 0.5);
     background: rgba(55, 55, 65, 0.85);
     font-family: 'Pretendard', 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -173,7 +174,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #ffffff;
-    font-size: clamp(0.98rem, calc(var(--app-vw, 100vw) * 0.038), 1.2rem);
+    font-size: clamp(0.85rem, calc(var(--app-vw, 100vw) * 0.033), 1.05rem);
     cursor: pointer;
     transition: transform 0.18s ease, background 0.25s ease, border-color 0.25s ease;
   }

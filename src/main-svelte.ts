@@ -3,8 +3,19 @@ import { sceneState } from './stores/sceneStore';
 import TitleScene from './components/TitleScene.svelte';
 import GameScene from './components/GameScene.svelte';
 import { soundSystem } from './systems/soundSystem';
+import { userManager } from './managers/UserManager';
 
 console.log('Main app initialized');
+
+// 사용자 인증 초기화 (비동기)
+(async () => {
+  try {
+    await userManager.initialize();
+    console.log('✅ 사용자 인증 초기화 완료');
+  } catch (error) {
+    console.error('❌ 사용자 인증 초기화 실패:', error);
+  }
+})();
 
 const ensureOrientation = (type: 'portrait' | 'landscape') => {
   setDeviceOrientation({ type }).catch(error => {
