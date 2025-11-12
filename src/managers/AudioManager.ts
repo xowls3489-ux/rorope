@@ -156,7 +156,9 @@ export class AudioManager {
      * 배경음악 볼륨 별도 조절 (효과음과 독립적)
      */
     public setBackgroundVolume(volume: number): void {
-        const bgSound = (soundSystem as any).sounds?.get('background');
+        // soundSystem의 내부 sounds Map에 접근
+        const internalSoundSystem = soundSystem as unknown as { sounds?: Map<string, any> };
+        const bgSound = internalSoundSystem.sounds?.get('background');
         if (bgSound) {
             bgSound.volume(Math.max(0, Math.min(1, volume)));
         }
@@ -171,8 +173,9 @@ export class AudioManager {
             console.log('배경음악 뮤트 상태 - 재생 안 함');
             return;
         }
-        
-        const bgSound = (soundSystem as any).sounds?.get('background');
+
+        const internalSoundSystem = soundSystem as unknown as { sounds?: Map<string, any> };
+        const bgSound = internalSoundSystem.sounds?.get('background');
         if (bgSound && !bgSound.playing()) {
             bgSound.volume(0); // 볼륨 0에서 시작
             bgSound.play();
@@ -185,7 +188,8 @@ export class AudioManager {
      * 배경음악 페이드 아웃
      */
     public fadeOutBackground(duration: number = 1000): void {
-        const bgSound = (soundSystem as any).sounds?.get('background');
+        const internalSoundSystem = soundSystem as unknown as { sounds?: Map<string, any> };
+        const bgSound = internalSoundSystem.sounds?.get('background');
         if (bgSound) {
             bgSound.fade(0.15, 0, duration);
             setTimeout(() => {

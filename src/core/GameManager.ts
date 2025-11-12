@@ -53,7 +53,7 @@ export async function initGameManager(): Promise<GameManager> {
     if (!gameManagerInstance) {
         gameManagerInstance = new GameManager();
         await new Promise((r) => setTimeout(r, 100));
-        (window as any).gameInstance = gameManagerInstance;
+        window.gameInstance = gameManagerInstance;
     }
     return gameManagerInstance;
 }

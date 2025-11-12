@@ -81,9 +81,9 @@ type AudioFocusEvent = { hasAudioFocus: boolean };
 
 const registerAudioFocusListener = (handler: (event: AudioFocusEvent) => void) => {
   const possibleBridge =
-    (window as any)?.toss?.events?.onAudioFocusChanged ??
-    (window as any)?.onAudioFocusChanged ??
-    (window as any)?.TossWebBridge?.onAudioFocusChanged;
+    window?.toss?.events?.onAudioFocusChanged ??
+    window?.onAudioFocusChanged ??
+    window?.TossWebBridge?.onAudioFocusChanged;
 
   if (typeof possibleBridge === 'function') {
     possibleBridge(handler);

@@ -6,6 +6,8 @@
 
   let soundEnabled = true;
   let audioUnlocked = false;
+  let clickHandler;
+  let touchHandler;
 
   // 사용자별 사운드 설정 불러오기
   onMount(async () => {
@@ -14,7 +16,7 @@
       soundEnabled = savedSoundMuted === 'false'; // muted false = enabled true
       soundSystem.setMuted(!soundEnabled);
     }
-    
+
     // 오디오 잠금 해제 및 배경음 재생 시도
     const tryPlayBgm = async () => {
       if (!audioUnlocked && soundEnabled) {
@@ -28,23 +30,38 @@
         }
       }
     };
-    
+
     // 즉시 시도 (네이티브 앱에서는 성공)
     await tryPlayBgm();
-    
+
     // 실패하면 첫 클릭/터치 대기 (웹 브라우저)
     if (!audioUnlocked) {
-      const unlockOnGesture = async () => {
+      clickHandler = async () => {
         await tryPlayBgm();
+        // 성공 시 리스너 제거
+        if (audioUnlocked) {
+          document.removeEventListener('click', clickHandler);
+          document.removeEventListener('touchstart', touchHandler);
+        }
       };
-      document.addEventListener('click', unlockOnGesture, { once: true });
-      document.addEventListener('touchstart', unlockOnGesture, { once: true });
+      touchHandler = clickHandler;
+
+      document.addEventListener('click', clickHandler);
+      document.addEventListener('touchstart', touchHandler);
     }
   });
   
   onDestroy(() => {
     // 타이틀씬 떠날 때 타이틀 배경음 정지
     soundSystem.stop('titleBgm');
+
+    // 이벤트 리스너 정리
+    if (clickHandler) {
+      document.removeEventListener('click', clickHandler);
+    }
+    if (touchHandler) {
+      document.removeEventListener('touchstart', touchHandler);
+    }
   });
 
   function toggleSound() {

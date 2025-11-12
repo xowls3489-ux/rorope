@@ -46,12 +46,12 @@ export class GameScene {
     // 배경 요소
     private bgTiles: PIXI.Graphics[] = [];
     private stars: Array<{
-        graphic: PIXI.Graphics;
+        graphic: StarGraphics;
         baseAlpha: number;
         twinkleSpeed: number;
         twinklePhase: number;
     }> = [];
-    private clouds: Array<{ sprite: PIXI.Sprite; speed: number }> = [];
+    private clouds: Array<{ sprite: CloudSprite; speed: number }> = [];
     
     // 물리 및 카메라
     private readonly maxSpeedX: number = GAME_CONFIG.maxSpeedX;
@@ -84,73 +84,86 @@ export class GameScene {
     }
 
     private async init(): Promise<void> {
-        // PixiJS 앱 초기화
-        this.app = new PIXI.Application({
-            width: GAME_CONFIG.width,
-            height: GAME_CONFIG.height,
-            backgroundColor: COLORS.background,
-            resizeTo: window,
-            antialias: true,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true,
-        });
+        try {
+            // PixiJS 앱 초기화
+            this.app = new PIXI.Application({
+                width: GAME_CONFIG.width,
+                height: GAME_CONFIG.height,
+                backgroundColor: COLORS.background,
+                resizeTo: window,
+                antialias: true,
+                resolution: window.devicePixelRatio || 1,
+                autoDensity: true,
+            });
 
-        const gameRoot = document.getElementById('game-root');
-        (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
+            const gameRoot = document.getElementById('game-root');
+            (gameRoot ?? document.body).appendChild(this.app.view as unknown as Node);
 
-        this.stage = this.app.stage;
+            this.stage = this.app.stage;
 
-        // 레이어 초기화 (뒤에서 앞 순서)
-        this.bgLayer = new PIXI.Container();
-        this.bgLayer.name = 'bgLayer';
-        this.stage.addChild(this.bgLayer);
+            // 레이어 초기화 (뒤에서 앞 순서)
+            this.bgLayer = new PIXI.Container();
+            this.bgLayer.name = 'bgLayer';
+            this.stage.addChild(this.bgLayer);
 
-        // fxLayer를 bgLayer 다음에 추가 (world보다 뒤에)
-        this.fxLayer = vfxSystem.initialize(this.stage);
+            // fxLayer를 bgLayer 다음에 추가 (world보다 뒤에)
+            this.fxLayer = vfxSystem.initialize(this.stage);
 
-        // UI 매니저를 먼저 초기화 (uiLayer가 먼저 추가됨)
-        this.uiManager = new UIManager(this.stage);
-        this.audioManager = new AudioManager();
+            // UI 매니저를 먼저 초기화 (uiLayer가 먼저 추가됨)
+            this.uiManager = new UIManager(this.stage);
+            this.audioManager = new AudioManager();
 
-        // world를 uiLayer 위에 추가 (클릭 이벤트를 받을 수 있도록)
-        this.world = new PIXI.Container();
-        this.world.name = 'world';
-        this.stage.addChild(this.world);
-        (this.world as any).eventMode = 'static';
-        this.world.interactive = true;
-        this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
-        
-        // pauseButton과 pausePanel을 world 위로 올리기 (클릭 가능하도록)
-        this.uiManager.bringPauseUIToFront();
-        
-        // 사운드 설정 확인 및 적용
-        const savedMuted = localStorage.getItem('soundMuted');
-        if (savedMuted !== null) {
-            const isMuted = savedMuted === 'true';
-            this.audioManager.setMuted(isMuted);
-            console.log('게임 시작 시 사운드 설정:', isMuted ? '뮤트' : '활성');
+            // world를 uiLayer 위에 추가 (클릭 이벤트를 받을 수 있도록)
+            this.world = new PIXI.Container();
+            this.world.name = 'world';
+            this.stage.addChild(this.world);
+            this.world.eventMode = 'static';
+            this.world.interactive = true;
+            this.world.hitArea = new PIXI.Rectangle(-50000, -10000, 100000, 20000);
+
+            // pauseButton과 pausePanel을 world 위로 올리기 (클릭 가능하도록)
+            this.uiManager.bringPauseUIToFront();
+
+            // 사운드 설정 확인 및 적용
+            try {
+                const savedMuted = localStorage.getItem('soundMuted');
+                if (savedMuted !== null) {
+                    const isMuted = savedMuted === 'true';
+                    this.audioManager.setMuted(isMuted);
+                    console.log('게임 시작 시 사운드 설정:', isMuted ? '뮤트' : '활성');
+                }
+            } catch (error) {
+                console.warn('사운드 설정 로드 실패:', error);
+            }
+
+            // 일시정지 콜백 설정
+            this.uiManager.setPauseCallbacks(
+                () => this.pauseGame(),
+                () => this.resumeGame(),
+                (enabled: boolean) => this.toggleSound(enabled),
+                () => this.requestTutorialReplay(),
+                () => this.handleResetRecords()
+            );
+
+            window.addEventListener('tutorial-dismissed', this.handleTutorialDismissed);
+
+            // 배경, 플랫폼 풀, 게임 오브젝트, 입력 초기화
+            await this.initBackground();
+            this.initPlatformPool();
+            this.initGameObjects();
+            this.initInput();
+
+            // 게임 루프 시작
+            this.app.ticker.add(this.update.bind(this));
+            this.app.ticker.maxFPS = 60;
+        } catch (error) {
+            console.error('게임 초기화 실패:', error);
+            // 사용자에게 에러 표시
+            const errorMsg = document.createElement('div');
+            errorMsg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#ff0000;color:#fff;padding:20px;border-radius:8px;font-family:sans-serif;text-align:center;z-index:9999;';
+            errorMsg.innerHTML = `<h3>게임 초기화 실패</h3><p>${error instanceof Error ? error.message : '알 수 없는 오류'}</p>`;
+            document.body.appendChild(errorMsg);
         }
-        
-        // 일시정지 콜백 설정
-        this.uiManager.setPauseCallbacks(
-            () => this.pauseGame(),
-            () => this.resumeGame(),
-            (enabled: boolean) => this.toggleSound(enabled),
-            () => this.requestTutorialReplay(),
-            () => this.handleResetRecords()
-        );
-
-        window.addEventListener('tutorial-dismissed', this.handleTutorialDismissed);
-
-        // 배경, 플랫폼 풀, 게임 오브젝트, 입력 초기화
-        await this.initBackground();
-        this.initPlatformPool();
-        this.initGameObjects();
-        this.initInput();
-
-        // 게임 루프 시작
-        this.app.ticker.add(this.update.bind(this));
-        this.app.ticker.maxFPS = 60;
     }
 
     private initPlatformPool(): void {
@@ -159,7 +172,7 @@ export class GameScene {
             platform.visible = false;
             platform.width = 0;
             platform.height = GAME_CONFIG.platformHeight;
-            (platform as any).inUse = false;
+            platform.inUse = false;
             this.world.addChild(platform);
             this.platformPool.push(platform);
         }
@@ -179,7 +192,7 @@ export class GameScene {
 
         // 별 추가
         for (let i = 0; i < 15; i++) {
-            const star = new PIXI.Graphics();
+            const star = new PIXI.Graphics() as StarGraphics;
             const size = Math.random() * 2 + 1;
             star.beginFill(0xffffff);
             star.drawCircle(0, 0, size);
@@ -189,7 +202,7 @@ export class GameScene {
             star.y = Math.random() * GAME_CONFIG.height;
             const baseAlpha = 0.3 + Math.random() * 0.7;
             star.alpha = baseAlpha;
-            (star as any).baseX = startX;
+            star.baseX = startX;
             this.bgLayer.addChild(star);
             this.stars.push({
                 graphic: star,
@@ -203,7 +216,7 @@ export class GameScene {
         try {
             const cloudTexture = await PIXI.Assets.load('/src/sprites/cloud.png');
             for (let i = 0; i < 4; i++) {
-                const cloud = new PIXI.Sprite(cloudTexture);
+                const cloud = new PIXI.Sprite(cloudTexture) as CloudSprite;
                 const scale = 0.3 + Math.random() * 0.4;
                 cloud.scale.set(scale);
                 const startX = Math.random() * GAME_CONFIG.width * 2;
@@ -211,7 +224,7 @@ export class GameScene {
                 cloud.y = 50 + Math.random() * (GAME_CONFIG.height * 0.4);
                 cloud.alpha = 0.2 + Math.random() * 0.3;
                 cloud.anchor.set(0.5, 0.5);
-                (cloud as any).baseX = startX;
+                cloud.baseX = startX;
                 this.bgLayer.addChild(cloud);
                 const speed = 0.3 + Math.random() * 0.4;
                 this.clouds.push({ sprite: cloud, speed });
@@ -418,7 +431,7 @@ export class GameScene {
     }
 
     private createPlatform(x: number, y: number): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !(p as any).inUse);
+        const platform = this.platformPool.find((p) => !p.inUse);
         if (!platform) {
             console.warn('플랫폼 풀 부족! 새로 생성합니다.');
             const newPlatform = new PIXI.Graphics() as PlatformGraphics;
@@ -444,7 +457,7 @@ export class GameScene {
         targetPlatform.isMoving = false;
         targetPlatform.moveType = undefined;
         targetPlatform.comboGiven = false; // 콤보 초기화
-        (targetPlatform as any).inUse = true;
+        targetPlatform.inUse = true;
 
         gameActions.addPlatform(targetPlatform);
         animationSystem.platformSpawnAnimation(targetPlatform);
@@ -457,7 +470,7 @@ export class GameScene {
         moveRange: number = 100,
         moveSpeed: number = 1.5
     ): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !(p as any).inUse);
+        const platform = this.platformPool.find((p) => !p.inUse);
         if (!platform) {
             console.warn('플랫폼 풀 부족! 새로 생성합니다.');
             const newPlatform = new PIXI.Graphics() as PlatformGraphics;
@@ -490,7 +503,7 @@ export class GameScene {
         targetPlatform.moveDirection = 1;
         targetPlatform.initialX = x;
         targetPlatform.comboGiven = false; // 콤보 초기화
-        (targetPlatform as any).inUse = true;
+        targetPlatform.inUse = true;
 
         gameActions.addPlatform(targetPlatform);
         animationSystem.platformSpawnAnimation(targetPlatform);
@@ -503,7 +516,7 @@ export class GameScene {
         moveRange: number = 100,
         moveSpeed: number = 1.5
     ): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !(p as any).inUse);
+        const platform = this.platformPool.find((p) => !p.inUse);
         if (!platform) {
             console.warn('플랫폼 풀 부족! 새로 생성합니다.');
             const newPlatform = new PIXI.Graphics() as PlatformGraphics;
@@ -536,7 +549,7 @@ export class GameScene {
         targetPlatform.moveDirection = 1;
         targetPlatform.initialY = y;
         targetPlatform.comboGiven = false; // 콤보 초기화
-        (targetPlatform as any).inUse = true;
+        targetPlatform.inUse = true;
 
         gameActions.addPlatform(targetPlatform);
         animationSystem.platformSpawnAnimation(targetPlatform);
@@ -595,7 +608,7 @@ export class GameScene {
     }
 
     private createPlatformNoAnimation(x: number, y: number): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !(p as any).inUse);
+        const platform = this.platformPool.find((p) => !p.inUse);
         if (!platform) {
             console.warn('플랫폼 풀 부족! 새로 생성합니다.');
             const newPlatform = new PIXI.Graphics() as PlatformGraphics;
@@ -621,7 +634,7 @@ export class GameScene {
         targetPlatform.isMoving = false;
         targetPlatform.moveType = undefined;
         targetPlatform.comboGiven = false; // 콤보 초기화
-        (targetPlatform as any).inUse = true;
+        targetPlatform.inUse = true;
 
         gameActions.addPlatform(targetPlatform);
         return targetPlatform;
@@ -703,7 +716,7 @@ export class GameScene {
         currentPlatforms.forEach((p) => {
             const pg = p as PlatformGraphics;
             pg.visible = false;
-            (pg as any).inUse = false;
+            pg.inUse = false;
             pg.isMoving = false;
             pg.moveType = undefined;
             pg.moveSpeed = undefined;
@@ -863,7 +876,7 @@ export class GameScene {
         this.player.rotation = angle * 0.3;
 
         try {
-            (this.player as any).scale?.set?.(1, 1);
+            this.player.scale?.set?.(1, 1);
         } catch {}
     }
 
@@ -964,13 +977,13 @@ export class GameScene {
                 graphic.alpha = star.baseAlpha * (0.7 + twinkle * 0.3);
             }
 
-            const baseX = (graphic as any).baseX;
+            const baseX = graphic.baseX ?? 0;
             graphic.x = baseX - scrollX;
 
             if (graphic.x < -50) {
-                (graphic as any).baseX += GAME_CONFIG.bgTileWidth * 2;
+                graphic.baseX = (graphic.baseX ?? 0) + GAME_CONFIG.bgTileWidth * 2;
             } else if (graphic.x > GAME_CONFIG.width + 50) {
-                (graphic as any).baseX -= GAME_CONFIG.bgTileWidth * 2;
+                graphic.baseX = (graphic.baseX ?? 0) - GAME_CONFIG.bgTileWidth * 2;
             }
         }
 
@@ -979,13 +992,13 @@ export class GameScene {
                 const cloudData = this.clouds[i];
                 const cloud = cloudData.sprite;
 
-                const baseX = (cloud as any).baseX;
+                const baseX = cloud.baseX ?? 0;
                 cloud.x = baseX - scrollX;
 
                 if (cloud.x < -200) {
-                    (cloud as any).baseX += GAME_CONFIG.bgTileWidth * 2;
+                    cloud.baseX = (cloud.baseX ?? 0) + GAME_CONFIG.bgTileWidth * 2;
                 } else if (cloud.x > GAME_CONFIG.width + 200) {
-                    (cloud as any).baseX -= GAME_CONFIG.bgTileWidth * 2;
+                    cloud.baseX = (cloud.baseX ?? 0) - GAME_CONFIG.bgTileWidth * 2;
                 }
             }
         }
@@ -1053,12 +1066,12 @@ export class GameScene {
 
         star.x = x;
         star.y = y;
-        (star as any).baseX = x;
+        star.baseX = x;
 
         this.world.addChild(star);
         this.powerupStars.push({ graphic: star, collected: false });
 
-        (star as any).twinklePhase = Math.random() * Math.PI * 2;
+        star.twinklePhase = Math.random() * Math.PI * 2;
     }
 
     private updatePowerupStars(): void {
@@ -1114,7 +1127,7 @@ export class GameScene {
             if (platform.x + (platform as PlatformGraphics).width < -200) {
                 const pg = platform as PlatformGraphics;
                 pg.visible = false;
-                (pg as any).inUse = false;
+                pg.inUse = false;
                 pg.isMoving = false;
                 pg.moveType = undefined;
                 pg.moveSpeed = undefined;
@@ -1283,7 +1296,7 @@ export class GameScene {
                 vfxSystem.triggerScreenShake(this.stage);
 
                 pg.visible = false;
-                (pg as any).inUse = false;
+                pg.inUse = false;
                 pg.isMoving = false;
                 pg.moveType = undefined;
             }

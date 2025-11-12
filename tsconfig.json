@@ -16,5 +16,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "src/svelte.d.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/core/**"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

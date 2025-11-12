@@ -54,6 +54,8 @@ export class UIManager {
     private onTutorialCallback?: () => void;
     private onResetRecordsCallback?: () => void;
     private soundEnabled: boolean = true;
+    private resizeHandler?: () => void;
+    private orientationChangeHandler?: () => void;
 
     constructor(stage: PIXI.Container) {
         this.stage = stage;
@@ -75,7 +77,7 @@ export class UIManager {
         // UI 전용 레이어 생성 (클릭 이벤트 완전 차단!)
         this.uiLayer = new PIXI.Container();
         this.uiLayer.name = 'uiLayer';
-        (this.uiLayer as any).eventMode = 'none';
+        this.uiLayer.eventMode = 'none';
         this.uiLayer.interactive = false;
         this.uiLayer.interactiveChildren = false;
         this.stage.addChild(this.uiLayer);
@@ -134,7 +136,7 @@ export class UIManager {
         // 게임오버 컨테이너
         this.gameOverContainer = new PIXI.Container();
         this.gameOverContainer.visible = false;
-        (this.gameOverContainer as any).eventMode = 'none';
+        this.gameOverContainer.eventMode = 'none';
         this.gameOverContainer.interactive = false;
         
         // 반투명 오버레이
@@ -146,7 +148,7 @@ export class UIManager {
         
         // 게임오버 콘텐츠 컨테이너 (오버레이 제외)
         this.gameOverContent = new PIXI.Container();
-        (this.gameOverContent as any).eventMode = 'none';
+        this.gameOverContent.eventMode = 'none';
         this.gameOverContent.interactive = false;
         this.gameOverContainer.addChild(this.gameOverContent);
         
@@ -186,13 +188,30 @@ export class UIManager {
     }
 
     private setupResizeHandler(): void {
-        const handleResize = () => {
+        this.resizeHandler = () => {
             this.refreshUILayout();
         };
+        this.orientationChangeHandler = this.resizeHandler;
 
-        window.addEventListener('resize', handleResize);
-        window.addEventListener('orientationchange', handleResize);
+        window.addEventListener('resize', this.resizeHandler);
+        window.addEventListener('orientationchange', this.orientationChangeHandler);
         this.refreshUILayout();
+    }
+
+    public destroy(): void {
+        // 이벤트 리스너 정리
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+        }
+        if (this.orientationChangeHandler) {
+            window.removeEventListener('orientationchange', this.orientationChangeHandler);
+        }
+
+        // PIXI 객체 정리
+        this.gameOverContainer.destroy({ children: true });
+        this.pausePanel.destroy({ children: true });
+        this.pauseButton.destroy({ children: true });
+        this.uiLayer.destroy({ children: true });
     }
 
     private updateGameOverPosition(): void {

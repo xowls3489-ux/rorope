@@ -1,14 +1,26 @@
-// 화면 크기를 동적으로 계산
-const getGameDimensions = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    return { width, height };
+// 화면 크기를 동적으로 계산하고 캐싱
+let cachedDimensions = {
+    width: window.innerWidth,
+    height: window.innerHeight
+};
+
+const updateGameDimensions = () => {
+    cachedDimensions.width = window.innerWidth;
+    cachedDimensions.height = window.innerHeight;
+};
+
+// 리사이즈 이벤트에서만 업데이트
+window.addEventListener('resize', updateGameDimensions);
+
+// 정리 함수 (필요 시 사용)
+export const cleanupConfigListeners = () => {
+    window.removeEventListener('resize', updateGameDimensions);
 };
 
 export const GAME_CONFIG = {
     // 화면 설정
-    get width() { return getGameDimensions().width; },
-    get height() { return getGameDimensions().height; },
+    get width() { return cachedDimensions.width; },
+    get height() { return cachedDimensions.height; },
     
     // 물리 상수
     gravity: 15,
