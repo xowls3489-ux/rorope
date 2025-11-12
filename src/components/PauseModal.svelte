@@ -12,11 +12,17 @@
   const handleShowTutorial = () => dispatch('show-tutorial');
   const handleResetRecords = () => dispatch('reset-records');
 
-  // 리더보드 지원 여부 확인
-  const isLeaderboardSupported = isMinVersionSupported({
-    android: "5.221.0",
-    ios: "5.221.0",
-  });
+  // 리더보드 지원 여부 확인 (브라우저 환경에서는 false)
+  let isLeaderboardSupported = false;
+  try {
+    isLeaderboardSupported = isMinVersionSupported({
+      android: "5.221.0",
+      ios: "5.221.0",
+    });
+  } catch (error) {
+    // 브라우저 환경에서는 에러가 발생하므로 무시
+    console.log('브라우저 환경: 리더보드 지원하지 않음');
+  }
 
   const handleOpenLeaderboard = async () => {
     if (!isLeaderboardSupported) {
