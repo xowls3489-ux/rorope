@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { openGameCenterLeaderboard, isMinVersionSupported } from '@apps-in-toss/web-framework';
 
   export let open = false;
   export let soundEnabled = true;
@@ -10,6 +11,26 @@
   const handleSoundToggle = () => dispatch('toggle-sound');
   const handleShowTutorial = () => dispatch('show-tutorial');
   const handleResetRecords = () => dispatch('reset-records');
+
+  // 리더보드 지원 여부 확인
+  const isLeaderboardSupported = isMinVersionSupported({
+    android: "5.221.0",
+    ios: "5.221.0",
+  });
+
+  const handleOpenLeaderboard = async () => {
+    if (!isLeaderboardSupported) {
+      console.warn('리더보드를 지원하지 않는 토스 앱 버전입니다.');
+      return;
+    }
+
+    try {
+      await openGameCenterLeaderboard();
+      console.log('리더보드 열림');
+    } catch (error) {
+      console.error('리더보드 열기 실패:', error);
+    }
+  };
 </script>
 
 {#if open}
@@ -23,6 +44,11 @@
         <button type="button" class="modal-button" on:click={handleSoundToggle}>
           {soundEnabled ? '🔊 Sound: On' : '🔇 Sound: Off'}
         </button>
+        {#if isLeaderboardSupported}
+          <button type="button" class="modal-button success" on:click={handleOpenLeaderboard}>
+            🏆 리더보드
+          </button>
+        {/if}
         <button type="button" class="modal-button secondary" on:click={handleShowTutorial}>
           📘 튜토리얼 다시보기
         </button>
@@ -131,6 +157,17 @@
   .modal-button.primary:hover,
   .modal-button.primary:focus-visible {
     background: linear-gradient(135deg, #76b5ff 0%, #97c9ff 100%);
+  }
+
+  .modal-button.success {
+    background: rgba(28, 96, 48, 0.82);
+    border-color: rgba(127, 255, 159, 0.6);
+    color: #d7ffe0;
+  }
+
+  .modal-button.success:hover,
+  .modal-button.success:focus-visible {
+    background: rgba(36, 120, 60, 0.9);
   }
 
   .modal-button.secondary {
