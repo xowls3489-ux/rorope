@@ -16,7 +16,10 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-    
+
+    - name: Upgrade npm
+      run: npm install -g npm@latest
+
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
