@@ -1,4 +1,5 @@
 import { getUserKeyForGame } from '@apps-in-toss/web-framework';
+import { logger } from '../utils/logger';
 
 /**
  * UserManager
@@ -45,7 +46,7 @@ export class UserManager {
         this.userKey = 'local_user';
       } else if (result.type === 'HASH') {
         this.userKey = result.hash;
-        console.log('✅ 사용자 인증 완료:', this.userKey.substring(0, 8) + '...');
+        logger.log('✅ 사용자 인증 완료:', this.userKey.substring(0, 8) + '...');
       }
 
       this.isInitialized = true;
@@ -142,7 +143,7 @@ export class UserManager {
 
       // 찾은 키들 삭제
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      console.log(`사용자 데이터 ${keysToRemove.length}개 삭제 완료`);
+      logger.log(`사용자 데이터 ${keysToRemove.length}개 삭제 완료`);
     } catch (error) {
       console.error('사용자 데이터 삭제 실패:', error);
     }

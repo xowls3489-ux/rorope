@@ -8,6 +8,7 @@ import { UIManager } from './UIManager';
 import { AudioManager } from './AudioManager';
 import { submitGameCenterLeaderBoardScore, isMinVersionSupported } from '@apps-in-toss/web-framework';
 import { isLeaderboardAvailable } from '../utils/platform';
+import { logger } from '../utils/logger';
 
 interface PlayerGraphics extends PIXI.Graphics {
     isOnPlatform?: boolean;
@@ -142,7 +143,7 @@ export class GameScene {
                 if (savedMuted !== null) {
                     const isMuted = savedMuted === 'true';
                     this.audioManager.setMuted(isMuted);
-                    console.log('게임 시작 시 사운드 설정:', isMuted ? '뮤트' : '활성');
+                    logger.log('게임 시작 시 사운드 설정:', isMuted ? '뮤트' : '활성');
                 }
             } catch (error) {
                 console.warn('사운드 설정 로드 실패:', error);
@@ -714,12 +715,60 @@ export class GameScene {
         });
         gameActions.clearPlatforms();
 
+        // 파워업 스타 정리
         this.powerupStars.forEach((starData) => {
             this.world.removeChild(starData.graphic);
+            starData.graphic.destroy();
         });
         this.powerupStars = [];
 
         this.startGame();
+    }
+
+    /**
+     * 게임 종료 시 리소스 정리
+     */
+    public destroy(): void {
+        // 배경 타일 정리
+        this.bgTiles.forEach(tile => {
+            this.bgLayer.removeChild(tile);
+            tile.destroy();
+        });
+        this.bgTiles = [];
+
+        // 별 정리
+        this.stars.forEach(starData => {
+            this.bgLayer.removeChild(starData.graphic);
+            starData.graphic.destroy();
+        });
+        this.stars = [];
+
+        // 구름 정리
+        this.clouds.forEach(cloudData => {
+            this.bgLayer.removeChild(cloudData.sprite);
+            cloudData.sprite.destroy();
+        });
+        this.clouds = [];
+
+        // 파워업 스타 정리
+        this.powerupStars.forEach(starData => {
+            this.world.removeChild(starData.graphic);
+            starData.graphic.destroy();
+        });
+        this.powerupStars = [];
+
+        // 플랫폼 풀 정리
+        this.platformPool.forEach(platform => {
+            this.world.removeChild(platform);
+            platform.destroy();
+        });
+        this.platformPool = [];
+
+        // PIXI 오브젝트 정리
+        this.player.destroy();
+        this.rope.destroy();
+
+        logger.log('GameScene 리소스 정리 완료');
     }
 
     private updatePullToAnchor(dt: number = 0.016): void {
@@ -1178,7 +1227,7 @@ export class GameScene {
         if (game.isSlowMotion && Date.now() > this.slowMotionEndTime) {
             gameActions.deactivateSlowMotion();
             vfxSystem.hideSlowMotionOverlay();
-            console.log('[슬로우 모션] 종료');
+            logger.log('[슬로우 모션] 종료');
         }
 
         if (
@@ -1188,7 +1237,7 @@ export class GameScene {
         ) {
             this.activateSlowMotionEffect();
             gameActions.updateComboMilestone(combo);
-            console.log(`[슬로우 모션] ${combo} 콤보 달성!`);
+            logger.log(`[슬로우 모션] ${combo} 콤보 달성!`);
         }
 
         if (!game.isSlowMotion && combo >= GAME_CONFIG.slowMotionComboThreshold) {
@@ -1204,7 +1253,7 @@ export class GameScene {
 
             if (dangerLeft || dangerRight || dangerTop || dangerBottom) {
                 this.activateSlowMotionEffect();
-                console.log('[슬로우 모션] 위험 감지! 활성화');
+                logger.log('[슬로우 모션] 위험 감지! 활성화');
             }
         }
     }
@@ -1231,7 +1280,7 @@ export class GameScene {
         vfxSystem.spawnComboParticleBurst(playerPos.x, playerPos.y, 15);
         vfxSystem.spawnComboShockwave(playerPos.x, playerPos.y, 15);
 
-        console.log('[무적 모드] 활성화!');
+        logger.log('[무적 모드] 활성화!');
     }
 
     private updateInvincibleMode(): void {
@@ -1239,7 +1288,7 @@ export class GameScene {
 
         if (game.isInvincible && Date.now() > this.invincibleEndTime) {
             gameActions.deactivateInvincible();
-            console.log('[무적 모드] 종료');
+            logger.log('[무적 모드] 종료');
         }
 
         if (game.isInvincible) {
@@ -1298,7 +1347,7 @@ export class GameScene {
     private async submitScoreToLeaderboard(score: number): Promise<void> {
         // 토스 앱이 아니면 리더보드 제출 건너뛰기
         if (!isLeaderboardAvailable()) {
-            console.log('⚠️ 토스 앱이 아니므로 리더보드 제출을 건너뜁니다.');
+            logger.log('⚠️ 토스 앱이 아니므로 리더보드 제출을 건너뜁니다.');
             return;
         }
 
@@ -1310,7 +1359,7 @@ export class GameScene {
             });
 
             if (!isSupported) {
-                console.log('리더보드를 지원하지 않는 토스 앱 버전입니다.');
+                logger.log('리더보드를 지원하지 않는 토스 앱 버전입니다.');
                 return;
             }
 
@@ -1318,15 +1367,15 @@ export class GameScene {
             const result = await submitGameCenterLeaderBoardScore({ score: score.toString() });
 
             if (result?.statusCode === 'SUCCESS') {
-                console.log('✅ 리더보드 점수 제출 성공:', score);
+                logger.log('✅ 리더보드 점수 제출 성공:', score);
             } else if (result === undefined) {
-                console.log('⚠️ 리더보드 지원하지 않음 (낮은 앱 버전)');
+                logger.log('⚠️ 리더보드 지원하지 않음 (낮은 앱 버전)');
             } else {
                 console.warn('⚠️ 리더보드 점수 제출 실패:', result);
             }
         } catch (error) {
             // 브라우저 환경이거나 미니앱 승인 전일 수 있음
-            console.log('리더보드 점수 제출 건너뜀 (브라우저 또는 승인 전):', error);
+            logger.log('리더보드 점수 제출 건너뜀 (브라우저 또는 승인 전):', error);
         }
     }
 
@@ -1351,7 +1400,7 @@ export class GameScene {
         const outLeft = screenX < GAME_CONFIG.gameOverBoundaryLeft;
 
         if (playerYTooLow || playerYTooHigh || outBottom || outTop || outLeft) {
-            console.log('GAME OVER!', {
+            logger.log('GAME OVER!', {
                 playerY: playerPos.y.toFixed(1),
                 screenY: screenY.toFixed(1),
                 playerYTooLow,
@@ -1387,7 +1436,7 @@ export class GameScene {
                 vfxSystem.spawnComboParticleBurst(centerX, centerY, 20);
                 vfxSystem.spawnComboShockwave(centerX, centerY, 20);
 
-                console.log('🎉 신기록 달성!');
+                logger.log('🎉 신기록 달성!');
             }
         }
     }
@@ -1484,7 +1533,7 @@ export class GameScene {
         // 배경음 볼륨 낮춤
         this.audioManager.setBackgroundVolume(0.05);
         
-        console.log('게임 일시정지');
+        logger.log('게임 일시정지');
     }
     
     // 재개
@@ -1496,13 +1545,13 @@ export class GameScene {
         // 배경음 볼륨 복구
         this.audioManager.setBackgroundVolume(0.15);
         
-        console.log('게임 재개');
+        logger.log('게임 재개');
     }
     
     // 사운드 토글
     private toggleSound(enabled: boolean): void {
         this.audioManager.setMuted(!enabled);
-        console.log('사운드 토글:', enabled ? '켜짐' : '꺼짐');
+        logger.log('사운드 토글:', enabled ? '켜짐' : '꺼짐');
     }
 
     private handleResetRecords(): void {
@@ -1511,7 +1560,7 @@ export class GameScene {
             return;
         }
         gameActions.resetRecords();
-        console.log('최고 기록 초기화 완료');
+        logger.log('최고 기록 초기화 완료');
     }
 
     private requestTutorialReplay(): void {

@@ -23,7 +23,7 @@
         ios: "5.221.0",
       });
     } catch (error) {
-      console.log('리더보드 버전 확인 실패:', error);
+      logger.log('리더보드 버전 확인 실패:', error);
     }
   }
 
@@ -35,7 +35,7 @@
 
     try {
       await openGameCenterLeaderboard();
-      console.log('리더보드 열림');
+      logger.log('리더보드 열림');
     } catch (error) {
       console.error('리더보드 열기 실패:', error);
     }

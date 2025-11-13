@@ -1,3 +1,4 @@
+import { logger } from './utils/logger';
 import { setDeviceOrientation } from '@apps-in-toss/web-framework';
 import { sceneState } from './stores/sceneStore';
 import TitleScene from './components/TitleScene.svelte';
@@ -5,13 +6,13 @@ import GameScene from './components/GameScene.svelte';
 import { soundSystem } from './systems/soundSystem';
 import { userManager } from './managers/UserManager';
 
-console.log('Main app initialized');
+logger.log('Main app initialized');
 
 // 사용자 인증 초기화 (비동기)
 (async () => {
   try {
     await userManager.initialize();
-    console.log('✅ 사용자 인증 초기화 완료');
+    logger.log('✅ 사용자 인증 초기화 완료');
   } catch (error) {
     console.error('❌ 사용자 인증 초기화 실패:', error);
   }
@@ -117,7 +118,7 @@ registerAudioFocusListener(({ hasAudioFocus }) => {
 const titleRoot = document.getElementById('title-root');
 if (titleRoot) {
   new TitleScene({ target: titleRoot });
-  console.log('Title scene mounted');
+  logger.log('Title scene mounted');
 }
 
 // Game scene mount (hidden initially)
@@ -126,7 +127,7 @@ if (gameRoot) {
   let gameInstance: GameScene | null = null;
 
   sceneState.subscribe(state => {
-    console.log('Scene changed to:', state);
+    logger.log('Scene changed to:', state);
 
     if (state === 'game') {
       ensureOrientation('landscape');
@@ -141,7 +142,7 @@ if (gameRoot) {
         gameRoot.style.display = 'flex';
         if (!gameInstance) {
           gameInstance = new GameScene({ target: gameRoot });
-          console.log('Game scene mounted');
+          logger.log('Game scene mounted');
         }
       }
     } else if (state === 'title') {
@@ -163,7 +164,7 @@ if (gameRoot) {
     }
   });
 
-  console.log('Scene manager initialized');
+  logger.log('Scene manager initialized');
 
   window.addEventListener('beforeunload', () => {
     ensureOrientation('portrait');

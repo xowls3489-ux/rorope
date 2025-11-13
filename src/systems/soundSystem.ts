@@ -1,5 +1,6 @@
 import { Howl, Howler } from 'howler';
 import { userManager } from '../managers/UserManager';
+import { logger } from '../utils/logger';
 
 // 사운드 효과 클래스
 export class SoundSystem {
@@ -51,7 +52,7 @@ export class SoundSystem {
             await Howler.ctx.resume();
           }
           this.audioContextUnlocked = true;
-          console.log('AudioContext unlocked!');
+          logger.log('AudioContext unlocked!');
         } catch (error) {
           console.warn('Failed to unlock AudioContext:', error);
         }
@@ -154,7 +155,7 @@ export class SoundSystem {
       autoplay: false,
       html5: false,
       onload: () => {
-        console.log('게임 배경음악 로드 완료');
+        logger.log('게임 배경음악 로드 완료');
       },
       onloaderror: (_id, error) => {
         console.warn('게임 배경음악 로드 실패:', error);
@@ -170,7 +171,7 @@ export class SoundSystem {
       autoplay: false,
       html5: false,
       onload: () => {
-        console.log('타이틀 배경음악 로드 완료');
+        logger.log('타이틀 배경음악 로드 완료');
       },
       onloaderror: (_id, error) => {
         console.warn('타이틀 배경음악 로드 실패:', error);
@@ -225,7 +226,7 @@ export class SoundSystem {
     }
     
     if (!this.audioContextUnlocked) {
-      console.log('AudioContext not unlocked yet, skipping sound:', soundName);
+      logger.log('AudioContext not unlocked yet, skipping sound:', soundName);
       return;
     }
     
@@ -236,14 +237,14 @@ export class SoundSystem {
         if (soundName === 'background' || soundName === 'titleBgm') {
           // 이미 재생 중이면 스킵 (중복 방지)
           if (sound.playing()) {
-            console.log(`${soundName} 이미 재생 중`);
+            logger.log(`${soundName} 이미 재생 중`);
             return;
           }
           // 배경음은 낮은 볼륨으로 재생
           const bgVolume = soundName === 'titleBgm' ? 0.2 : 0.15;
           sound.volume(this.isMuted ? 0 : bgVolume);
           sound.play();
-          console.log(`${soundName} 재생 시작`);
+          logger.log(`${soundName} 재생 시작`);
           return;
         }
         
@@ -328,7 +329,7 @@ export class SoundSystem {
           await Howler.ctx.resume();
         }
         this.audioContextUnlocked = true;
-        console.log('AudioContext unlocked via unlock() method!');
+        logger.log('AudioContext unlocked via unlock() method!');
         
         // 음소거 상태 재적용
         if (this.isMuted) {
