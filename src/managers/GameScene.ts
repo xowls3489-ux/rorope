@@ -25,7 +25,17 @@ interface PlatformGraphics extends PIXI.Graphics {
     initialX?: number;
     initialY?: number;
     comboGiven?: boolean; // 이미 콤보를 부여했는지 여부
+    inUse?: boolean; // 현재 사용 중인 플랫폼인지 여부
 }
+
+type StarGraphics = PIXI.Graphics & {
+    baseX?: number;
+    twinklePhase?: number;
+};
+
+type CloudSprite = PIXI.Sprite & {
+    baseX?: number;
+};
 
 /**
  * GameScene
@@ -323,7 +333,7 @@ export class GameScene {
         // Stage 레벨 이벤트 (게임오버 재시작)
         this.stage.interactive = true;
         this.stage.hitArea = new PIXI.Rectangle(0, 0, 10000, 10000);
-        this.stage.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+        this.stage.on('pointerdown', (_event: PIXI.FederatedPointerEvent) => {
             const currentState = gameState.get();
             if (currentState.gameOver) {
                 this.restartGame();
@@ -405,31 +415,6 @@ export class GameScene {
         }
     }
 
-    private releaseRopeFromPull(): void {
-        const playerPos = playerState.get();
-        const boostFactor = GAME_CONFIG.grappleMomentumBoost;
-        let velocityX = playerPos.velocityX * boostFactor;
-        let velocityY = playerPos.velocityY * boostFactor;
-
-        const safeMaxSpeedX = 15;
-        const safeMaxSpeedY = 5;
-        velocityX = Math.max(-safeMaxSpeedX, Math.min(safeMaxSpeedX, velocityX));
-        velocityY = Math.max(-safeMaxSpeedY, Math.min(safeMaxSpeedY, velocityY));
-
-        gameActions.updatePlayerVelocity(velocityX, velocityY);
-
-        gameActions.setSwinging(false);
-        ropeState.setKey('isActive', false);
-        ropeState.setKey('isFlying', false);
-        ropeState.setKey('isPulling', false);
-
-        this.targetCameraZoom = this.baseCameraZoom;
-
-        animationSystem.ropeReleaseAnimation(this.player, this.rope);
-        this.audioManager.playRopeRelease();
-
-        vfxSystem.spawnReleaseParticles(playerPos.x, playerPos.y, velocityX, velocityY);
-    }
 
     private createPlatform(x: number, y: number): PlatformGraphics {
         const platform = this.platformPool.find((p) => !p.inUse);
@@ -1161,18 +1146,17 @@ export class GameScene {
             const shouldSpawnVertical = distance >= 10000 && Math.random() < 0.15;
 
             const yTop = 80 + Math.random() * 200;
-            let platformTop: PlatformGraphics;
 
             if (shouldSpawnVertical) {
-                platformTop = this.createRandomVerticalMovingPlatform(x, yTop);
+                this.createRandomVerticalMovingPlatform(x, yTop);
             } else if (shouldSpawnHorizontal) {
-                platformTop = this.createRandomMovingPlatform(x, yTop);
+                this.createRandomMovingPlatform(x, yTop);
             } else {
-                platformTop = this.createPlatform(x, yTop);
+                this.createPlatform(x, yTop);
             }
 
             const yBottom = 350 + Math.random() * 170;
-            const platformBottom = this.createPlatform(x + 20, yBottom);
+            this.createPlatform(x + 20, yBottom);
         }
     }
 

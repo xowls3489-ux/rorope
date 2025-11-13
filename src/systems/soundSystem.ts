@@ -104,7 +104,7 @@ export class SoundSystem {
       volume: 0.6,
       preload: true,
       html5: false,
-      onloaderror: (id, error) => {
+      onloaderror: (_id, error) => {
         console.warn('babat.wav 로드 실패:', error);
       }
     });
@@ -156,7 +156,7 @@ export class SoundSystem {
       onload: () => {
         console.log('게임 배경음악 로드 완료');
       },
-      onloaderror: (id, error) => {
+      onloaderror: (_id, error) => {
         console.warn('게임 배경음악 로드 실패:', error);
       }
     });
@@ -172,7 +172,7 @@ export class SoundSystem {
       onload: () => {
         console.log('타이틀 배경음악 로드 완료');
       },
-      onloaderror: (id, error) => {
+      onloaderror: (_id, error) => {
         console.warn('타이틀 배경음악 로드 실패:', error);
       }
     });

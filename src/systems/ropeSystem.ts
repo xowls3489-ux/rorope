@@ -145,7 +145,7 @@ export class RopeSystem {
         gameActions.updateRopeTip(nextX, nextY);
     }
 
-    drawRope(graphics: PIXI.Graphics, ropeColor: number = 0xFFFFFF): void {
+    drawRope(graphics: PIXI.Graphics, _ropeColor: number = 0xFFFFFF): void {
         const rope = ropeState.get();
         const playerPos = playerState.get();
         const game = gameState.get();

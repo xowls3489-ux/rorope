@@ -23,7 +23,6 @@ export class VFXSystem {
     private fxLayer!: PIXI.Container;
     private particles: Particle[] = [];
     private readonly particlePoolSize = 30; // 최적화: 50 -> 30으로 감소
-    private stageAlpha: number = 1.0;
     private slowMotionOverlay?: PIXI.Graphics;
 
     /**
@@ -336,7 +335,7 @@ export class VFXSystem {
     /**
      * 로프 트레일 파티클 (흑백)
      */
-    spawnRopeTrailParticles(playerX: number, playerY: number, anchorX: number, anchorY: number, combo: number = 0): void {
+    spawnRopeTrailParticles(playerX: number, playerY: number, anchorX: number, anchorY: number, _combo: number = 0): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
         const count = 1 + Math.floor(Math.random() * 2);
