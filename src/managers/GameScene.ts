@@ -7,6 +7,7 @@ import { GAME_CONFIG, COLORS } from '../core/config';
 import { UIManager } from './UIManager';
 import { AudioManager } from './AudioManager';
 import { submitGameCenterLeaderBoardScore, isMinVersionSupported } from '@apps-in-toss/web-framework';
+import { isLeaderboardAvailable } from '../utils/platform';
 
 interface PlayerGraphics extends PIXI.Graphics {
     isOnPlatform?: boolean;
@@ -1295,6 +1296,12 @@ export class GameScene {
      * 토스 리더보드에 점수 제출
      */
     private async submitScoreToLeaderboard(score: number): Promise<void> {
+        // 토스 앱이 아니면 리더보드 제출 건너뛰기
+        if (!isLeaderboardAvailable()) {
+            console.log('⚠️ 토스 앱이 아니므로 리더보드 제출을 건너뜁니다.');
+            return;
+        }
+
         try {
             // 리더보드 지원 여부 확인
             const isSupported = isMinVersionSupported({

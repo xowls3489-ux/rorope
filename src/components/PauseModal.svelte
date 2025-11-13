@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { openGameCenterLeaderboard, isMinVersionSupported } from '@apps-in-toss/web-framework';
+  import { isLeaderboardAvailable } from '../utils/platform';
 
   export let open = false;
   export let soundEnabled = true;
@@ -12,21 +13,23 @@
   const handleShowTutorial = () => dispatch('show-tutorial');
   const handleResetRecords = () => dispatch('reset-records');
 
-  // 리더보드 지원 여부 확인 (브라우저 환경에서는 false)
+  // 리더보드 사용 가능 여부 확인 (토스 앱에서만 true)
   let isLeaderboardSupported = false;
-  try {
-    isLeaderboardSupported = isMinVersionSupported({
-      android: "5.221.0",
-      ios: "5.221.0",
-    });
-  } catch (error) {
-    // 브라우저 환경에서는 에러가 발생하므로 무시
-    console.log('브라우저 환경: 리더보드 지원하지 않음');
+
+  if (isLeaderboardAvailable()) {
+    try {
+      isLeaderboardSupported = isMinVersionSupported({
+        android: "5.221.0",
+        ios: "5.221.0",
+      });
+    } catch (error) {
+      console.log('리더보드 버전 확인 실패:', error);
+    }
   }
 
   const handleOpenLeaderboard = async () => {
     if (!isLeaderboardSupported) {
-      console.warn('리더보드를 지원하지 않는 토스 앱 버전입니다.');
+      console.warn('리더보드를 지원하지 않는 환경입니다.');
       return;
     }
 
