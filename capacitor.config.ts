@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.retrying.rorope',
   appName: '바밧줄',
-  webDir: 'dist',
+  webDir: 'dist/web',
   android: {
     buildOptions: {
       keystorePath: undefined,
