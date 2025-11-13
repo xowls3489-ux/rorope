@@ -1,6 +1,7 @@
 import { Howl, Howler } from 'howler';
 import { userManager } from '../managers/UserManager';
 import { logger } from '../utils/logger';
+import { GAME_CONFIG } from '../core/config';
 
 // 사운드 효과 클래스
 export class SoundSystem {
@@ -11,21 +12,10 @@ export class SoundSystem {
   private focusPausedSounds: Set<string> = new Set();
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
-  // 사운드별 최소 재생 간격(ms) - 이 간격 내에서는 재생 안 함
-  private minIntervalMs: Record<string, number> = {
-    swing: 150, // 루프형: 자주 트리거되어도 150ms 내 중복 방지
-    background: 2000, // 게임 배경음
-    titleBgm: 2000, // 타이틀 배경음
-    landing: 120, // 착지 연타 방지
-    score: 120, // 점수 연타 방지
-    ropeShoot: 100, // 로프 발사 (swing.wav)
-    hit: 50, // 히트 사운드 (빠른 연타 가능)
-    comboUp: 80, // 콤보 증가
-    babat10: 1000, // 10콤보 특별 사운드 (1초 간격)
-    ropeRelease: 120,
-    jump: 100,
-    gameOver: 500
-  };
+  // 사운드별 최소 재생 간격(ms) - config에서 가져옴
+  private get minIntervalMs(): Record<string, number> {
+    return GAME_CONFIG.soundIntervals;
+  }
 
   constructor() {
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
