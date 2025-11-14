@@ -3,6 +3,7 @@
   import { initGameManager } from '../core/GameManager';
   import PauseModal from './PauseModal.svelte';
   import GameOverModal from './GameOverModal.svelte';
+  import ConfirmModal from './ConfirmModal.svelte';
   import { userManager } from '../managers/UserManager';
   import type { GameScene } from '../managers/GameScene';
 
@@ -24,6 +25,7 @@
 
   let pauseModalOpen = false;
   let pauseSoundEnabled = true;
+  let confirmResetOpen = false;
 
   const createInitialGameOverState = (): GameOverOverlayState => ({
     open: false,
@@ -119,8 +121,17 @@
   };
 
   const handlePauseResetRecords = () => {
+    confirmResetOpen = true;
+  };
+
+  const handleConfirmReset = () => {
+    confirmResetOpen = false;
     const manager = gameInstanceRef?.getUIManager?.();
     manager?.requestResetRecordsFromOverlay?.();
+  };
+
+  const handleCancelReset = () => {
+    confirmResetOpen = false;
   };
 
   const handleGameOverRetry = () => {
@@ -225,6 +236,17 @@
   bestCombo={gameOverOverlay.bestCombo}
   isNewRecord={gameOverOverlay.isNewRecord}
   on:retry={handleGameOverRetry}
+/>
+
+<ConfirmModal
+  open={confirmResetOpen}
+  title="기록 초기화"
+  message="정말로 최고 기록과 최고 콤보를 초기화할까요?"
+  confirmText="초기화"
+  cancelText="취소"
+  isDangerous={true}
+  on:confirm={handleConfirmReset}
+  on:cancel={handleCancelReset}
 />
 
 <style>

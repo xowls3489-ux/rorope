@@ -1537,10 +1537,7 @@ export class GameScene {
     }
 
     private handleResetRecords(): void {
-        const confirmed = window.confirm('정말로 최고 기록과 최고 콤보를 초기화할까요?');
-        if (!confirmed) {
-            return;
-        }
+        // 모달 확인은 GameScene.svelte의 ConfirmModal에서 처리
         gameActions.resetRecords();
         logger.log('최고 기록 초기화 완료');
     }
