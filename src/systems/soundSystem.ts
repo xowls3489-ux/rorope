@@ -379,6 +379,13 @@ export class SoundSystem {
       return;
     }
 
+    // AudioContext 재개 (iOS 등에서 필요)
+    if (Howler.ctx && Howler.ctx.state === 'suspended') {
+      Howler.ctx.resume().catch((error) => {
+        console.warn('Failed to resume AudioContext:', error);
+      });
+    }
+
     this.focusPausedSounds.forEach(name => {
       const sound = this.sounds.get(name);
       if (!sound) {
@@ -386,7 +393,7 @@ export class SoundSystem {
       }
       try {
         if (!sound.playing()) {
-          sound.play();
+          sound.play(); // Howler.js의 play()는 pause()된 위치부터 재생됨
         }
       } catch (error) {
         console.warn('Failed to resume sound after focus gain:', name, error);

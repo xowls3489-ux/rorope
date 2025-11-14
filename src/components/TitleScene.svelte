@@ -119,6 +119,10 @@
     <button class="start-btn" on:click={startGame}>
       Start
     </button>
+    <!-- 연령등급 표기 -->
+    <div class="age-rating">
+      <span class="age-badge">전체이용가</span>
+    </div>
   </div>
 </div>
 
@@ -199,6 +203,26 @@
 
   .start-btn:active {
     transform: scale(0.98);
+  }
+
+  .age-rating {
+    margin-top: 32px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .age-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #FFFFFF;
+    border-radius: 20px;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: 0.05em;
   }
 
   @media (max-width: 768px) {

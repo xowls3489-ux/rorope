@@ -1,11 +1,12 @@
 import * as PIXI from 'pixi.js';
 import type { GameScene } from '../managers/GameScene';
+import type { GameManager } from '../core/GameManager';
 
 type AudioFocusHandler = (event: { hasAudioFocus: boolean }) => void;
 
 declare global {
   interface Window {
-    gameInstance?: GameScene;
+    gameInstance?: GameScene | GameManager | null;
     toss?: {
       events?: {
         onAudioFocusChanged?: (handler: AudioFocusHandler) => void;

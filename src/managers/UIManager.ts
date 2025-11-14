@@ -455,7 +455,8 @@ export class UIManager {
         this.retryButton.y = btnY;
 
         // 콘텐츠 컨테이너 스케일 및 위치 조정 (모바일 화면 대응)
-        const position = this.calculateModalScaleAndPosition(cardWidth, cardHeight, insets, GAME_CONFIG.uiMarginLarge);
+        const modalInsets = { top, bottom, left, right };
+        const position = this.calculateModalScaleAndPosition(cardWidth, cardHeight, modalInsets, GAME_CONFIG.uiMarginLarge);
         this.gameOverContent.scale.set(position.scale);
         this.gameOverContent.position.set(position.x, position.y);
 

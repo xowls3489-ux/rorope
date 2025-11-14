@@ -606,7 +606,7 @@ export class VFXSystem {
         const children = this.fxLayer.children;
         if (children) {
             for (let i = 0; i < children.length; i++) {
-                const child = children[i];
+                const child = children[i] as PIXI.Container;
                 // 최적화: 각 메서드 존재 여부를 한번만 체크하고 실행
                 child.vfxFade?.();
                 child.vfxRipple?.();
