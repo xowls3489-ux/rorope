@@ -97,6 +97,9 @@
 </script>
 
 <div class="start-screen">
+  <!-- 연령등급 표기 (왼쪽 상단) -->
+  <img src="/icon/GRAC_All.png" alt="전체이용가" class="age-rating-icon" />
+
   <!-- 사운드 토글 버튼 (우측 상단) -->
   <button class="sound-toggle" on:click={toggleSound} aria-label="소리 켜기/끄기">
     {#if soundEnabled}
@@ -119,10 +122,6 @@
     <button class="start-btn" on:click={startGame}>
       Start
     </button>
-    <!-- 연령등급 표기 -->
-    <div class="age-rating">
-      <span class="age-badge">전체이용가</span>
-    </div>
   </div>
 </div>
 
@@ -138,6 +137,18 @@
     justify-content: center;
     align-items: center;
     pointer-events: auto;
+  }
+
+  .age-rating-icon {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    top: calc(20px + env(safe-area-inset-top, 0px));
+    left: calc(20px + env(safe-area-inset-left, 0px));
+    width: 80px;
+    height: auto;
+    z-index: 10;
+    pointer-events: none;
   }
 
   .sound-toggle {
@@ -205,27 +216,14 @@
     transform: scale(0.98);
   }
 
-  .age-rating {
-    margin-top: 32px;
-    display: flex;
-    justify-content: center;
-  }
-
-  .age-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid #FFFFFF;
-    border-radius: 20px;
-    font-family: 'Pretendard', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #FFFFFF;
-    letter-spacing: 0.05em;
-  }
-
   @media (max-width: 768px) {
+    .age-rating-icon {
+      width: 64px;
+      top: 16px;
+      left: 16px;
+      top: calc(16px + env(safe-area-inset-top, 0px));
+      left: calc(16px + env(safe-area-inset-left, 0px));
+    }
     .sound-toggle {
       width: 48px;
       height: 48px;
