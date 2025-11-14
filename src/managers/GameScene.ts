@@ -512,7 +512,7 @@ export class GameScene {
         const platform = this.getPlatformFromPool();
         const width = this.randomPlatformWidth();
         this.setupPlatformBase(platform, x, y, width, {
-            color: 0x888888,
+            color: 0xaaaaaa, // 밝은 회색으로 구분
             isMoving: true,
             moveType: 'horizontal',
             moveSpeed,
@@ -533,7 +533,7 @@ export class GameScene {
         const platform = this.getPlatformFromPool();
         const width = this.randomPlatformWidth();
         this.setupPlatformBase(platform, x, y, width, {
-            color: 0x666666,
+            color: 0x999999, // 중간 회색으로 구분
             isMoving: true,
             moveType: 'vertical',
             moveSpeed,
@@ -1174,8 +1174,23 @@ export class GameScene {
             const x = rightmostPlatformEnd + gap;
 
             const distance = this.scrollOffsetX;
-            const shouldSpawnHorizontal = distance >= 5000 && Math.random() < 0.15;
-            const shouldSpawnVertical = distance >= 10000 && Math.random() < 0.15;
+
+            // 거리에 따른 난이도 곡선
+            // 2000부터 수평 움직이는 플랫폼 시작 (20%)
+            // 5000부터 수직 움직이는 플랫폼 시작 (15%)
+            // 거리가 멀어질수록 확률 증가
+            let horizontalChance = 0;
+            let verticalChance = 0;
+
+            if (distance >= 2000) {
+                horizontalChance = Math.min(0.35, 0.2 + (distance - 2000) * 0.00002);
+            }
+            if (distance >= 5000) {
+                verticalChance = Math.min(0.25, 0.15 + (distance - 5000) * 0.00001);
+            }
+
+            const shouldSpawnVertical = Math.random() < verticalChance;
+            const shouldSpawnHorizontal = !shouldSpawnVertical && Math.random() < horizontalChance;
 
             const yTop = 80 + Math.random() * 200;
 
@@ -1187,8 +1202,15 @@ export class GameScene {
                 this.createPlatform(x, yTop);
             }
 
+            // 하단 플랫폼은 가끔 움직이는 플랫폼 생성 (10000 이후)
             const yBottom = 350 + Math.random() * 170;
-            this.createPlatform(x + 20, yBottom);
+            const shouldBottomMove = distance >= 10000 && Math.random() < 0.2;
+
+            if (shouldBottomMove) {
+                this.createRandomMovingPlatform(x + 20, yBottom);
+            } else {
+                this.createPlatform(x + 20, yBottom);
+            }
         }
     }
 
