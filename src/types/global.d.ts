@@ -1,10 +1,11 @@
 import * as PIXI from 'pixi.js';
+import type { GameScene } from '../managers/GameScene';
 
 type AudioFocusHandler = (event: { hasAudioFocus: boolean }) => void;
 
 declare global {
   interface Window {
-    gameInstance?: any;
+    gameInstance?: GameScene;
     toss?: {
       events?: {
         onAudioFocusChanged?: (handler: AudioFocusHandler) => void;
@@ -26,6 +27,14 @@ declare module 'pixi.js' {
 
   interface Sprite {
     baseX?: number;
+  }
+
+  interface Container {
+    vfxFade?: () => void;
+    vfxRipple?: () => void;
+    vfxFlash?: () => void;
+    vfxShockwave?: () => void;
+    vfxExplosionShockwave?: () => void;
   }
 }
 

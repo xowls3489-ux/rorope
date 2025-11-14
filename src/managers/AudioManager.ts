@@ -1,5 +1,6 @@
 import { soundSystem } from '../systems/soundSystem';
 import { userManager } from './UserManager';
+import { logger } from '../utils/logger';
 
 /**
  * AudioManager
@@ -170,7 +171,7 @@ export class AudioManager {
     public fadeInBackground(duration: number = 1500): void {
         // 뮤트 상태면 재생하지 않음
         if (this.isMuted) {
-            console.log('배경음악 뮤트 상태 - 재생 안 함');
+            logger.log('배경음악 뮤트 상태 - 재생 안 함');
             return;
         }
 
@@ -180,7 +181,7 @@ export class AudioManager {
             bgSound.volume(0); // 볼륨 0에서 시작
             bgSound.play();
             bgSound.fade(0, 0.15, duration); // 페이드 인
-            console.log('배경음악 페이드 인 시작');
+            logger.log('배경음악 페이드 인 시작');
         }
     }
     

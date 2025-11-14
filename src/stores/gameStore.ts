@@ -1,6 +1,7 @@
 import { atom, map } from 'nanostores';
 import * as PIXI from 'pixi.js';
 import { userManager } from '../managers/UserManager';
+import { logger } from '../utils/logger';
 
 // 게임 상태 인터페이스
 export interface GameState {
@@ -158,7 +159,7 @@ export const gameActions = {
       gameState.setKey('highScore', currentScore);
       saveHighScore(currentScore);
       isNewRecord = true;
-      console.log(`🎉 신기록! 점수: ${state.highScore} → ${currentScore}`);
+      logger.log(`🎉 신기록! 점수: ${state.highScore} → ${currentScore}`);
     }
     
     // 최고 콤보 갱신 체크 (이번 라운드 최고 콤보와 비교)
@@ -166,7 +167,7 @@ export const gameActions = {
       gameState.setKey('maxCombo', roundMaxCombo);
       saveMaxCombo(roundMaxCombo);
       isNewRecord = true;
-      console.log(`🎉 신기록! 콤보: ${state.maxCombo} → ${roundMaxCombo}`);
+      logger.log(`🎉 신기록! 콤보: ${state.maxCombo} → ${roundMaxCombo}`);
     }
     
     gameState.setKey('isNewRecord', isNewRecord);

@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import { openGameCenterLeaderboard, isMinVersionSupported } from '@apps-in-toss/web-framework';
   import { isLeaderboardAvailable } from '../utils/platform';
+  import { logger } from '../utils/logger';
 
   export let open = false;
   export let soundEnabled = true;

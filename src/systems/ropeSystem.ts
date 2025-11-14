@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { gameActions, playerState, ropeState, platforms, gameState } from '../stores/gameStore';
 import { vfxSystem } from './vfxSystem';
 import { soundSystem } from './soundSystem';
+import { logger } from '../utils/logger';
 
 export class RopeSystem {
     launchFromClick(app: PIXI.Application, world: PIXI.Container, clientX: number, clientY: number, shootSpeed: number = 2200, maxLength: number = 700): void {
@@ -17,10 +18,10 @@ export class RopeSystem {
         const dy = worldClickY - playerPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < 30) {
-            console.log('[로프] 클릭 거리 너무 가까움:', distance.toFixed(1));
+            logger.log('[로프] 클릭 거리 너무 가까움:', distance.toFixed(1));
             return;
         }
-        console.log('[로프] 발사:', { distance: distance.toFixed(1), dx: dx.toFixed(1), dy: dy.toFixed(1), worldX: world.x.toFixed(1), scale: scale.toFixed(2) });
+        logger.log('[로프] 발사:', { distance: distance.toFixed(1), dx: dx.toFixed(1), dy: dy.toFixed(1), worldX: world.x.toFixed(1), scale: scale.toFixed(2) });
 
         const dirLen = Math.max(1e-6, distance);
         const dirX = dx / dirLen;
@@ -54,7 +55,7 @@ export class RopeSystem {
 
         const currentPlatforms = platforms.get();
         let hitPoint: { x: number; y: number } | null = null;
-        let hitPlatform: any = null; // 히트한 플랫폼 추적
+        let hitPlatform: (PIXI.Graphics & { width: number; comboGiven?: boolean }) | null = null; // 히트한 플랫폼 추적
 
         for (const platform of currentPlatforms) {
             const pg = platform as PIXI.Graphics & { width: number; comboGiven?: boolean };
@@ -111,14 +112,14 @@ export class RopeSystem {
                 if (newCombo % 10 === 0 && newCombo > 0) {
                     // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
                     soundSystem.play('babat10');
-                    console.log(`🎉 ${newCombo} 콤보! 바밧~`);
+                    logger.log(`🎉 ${newCombo} 콤보! 바밧~`);
                 } else {
                     // 일반 콤보 증가 사운드
                     soundSystem.play('comboUp');
                 }
             } else {
                 // 이미 콤보를 받은 플랫폼
-                console.log('이미 콤보를 받은 플랫폼 - 콤보 증가 없음');
+                logger.log('이미 콤보를 받은 플랫폼 - 콤보 증가 없음');
             }
             
             const game = gameState.get();

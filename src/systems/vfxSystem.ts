@@ -1,4 +1,5 @@
 import * as PIXI from 'pixi.js';
+import { logger } from '../utils/logger';
 
 interface Particle {
     graphics: PIXI.Graphics;
@@ -123,7 +124,7 @@ export class VFXSystem {
             return;
         }
 
-        console.log(`[VFX] 먼지 파티클 ${count}개 스폰:`, x, y);
+        logger.log(`[VFX] 먼지 파티클 ${count}개 스폰:`, x, y);
         const colors = [0xffffff, 0xcccccc, 0xaaaaaa]; // 흰색 계열 다양한 톤
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
@@ -147,7 +148,7 @@ export class VFXSystem {
         }
 
         const count = 3 + Math.floor(Math.random() * 2); // 최적화: 3~4개로 감소
-        console.log(`[VFX] 로프 해제 파티클 ${count}개 스폰:`, x, y);
+        logger.log(`[VFX] 로프 해제 파티클 ${count}개 스폰:`, x, y);
         const baseAngle = Math.atan2(vy, vx);
         for (let i = 0; i < count; i++) {
             const angle = baseAngle + (Math.random() - 0.5) * 1.2;
@@ -169,7 +170,7 @@ export class VFXSystem {
             console.warn('[VFX] fxLayer가 초기화되지 않음');
             return;
         }
-        console.log('[VFX] 로프 연결 선 효과:', fromX, fromY, '->', toX, toY);
+        logger.log('[VFX] 로프 연결 선 효과:', fromX, fromY, '->', toX, toY);
 
         const line = new PIXI.Graphics();
         
@@ -604,7 +605,7 @@ export class VFXSystem {
         const children = this.fxLayer.children;
         if (children) {
             for (let i = 0; i < children.length; i++) {
-                const child: any = children[i];
+                const child = children[i];
                 // 최적화: 각 메서드 존재 여부를 한번만 체크하고 실행
                 child.vfxFade?.();
                 child.vfxRipple?.();

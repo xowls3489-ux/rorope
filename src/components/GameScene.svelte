@@ -4,6 +4,7 @@
   import PauseModal from './PauseModal.svelte';
   import GameOverModal from './GameOverModal.svelte';
   import { userManager } from '../managers/UserManager';
+  import type { GameScene } from '../managers/GameScene';
 
   type GameOverOverlayState = {
     open: boolean;
@@ -19,7 +20,7 @@
 
   let showTutorial = false;
   let tutorialMode: 'intro' | 'replay' = 'intro';
-  let gameInstanceRef: any = null;
+  let gameInstanceRef: GameScene | null = null;
 
   let pauseModalOpen = false;
   let pauseSoundEnabled = true;
