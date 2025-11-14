@@ -7,14 +7,34 @@
  * 현재 토스 앱에서 실행 중인지 확인
  */
 export function isTossApp(): boolean {
-  // 토스 앱에서만 사용 가능한 API가 있는지 확인
-  if (typeof window !== 'undefined') {
-    return !!(
-      window.toss?.events?.onAudioFocusChanged ||
-      window.onAudioFocusChanged ||
-      window.TossWebBridge?.onAudioFocusChanged
-    );
+  if (typeof window === 'undefined') return false;
+
+  // 방법 1: Toss WebBridge API 존재 확인
+  if (window.toss || window.TossWebBridge || window.onAudioFocusChanged) {
+    console.log('✅ 토스 앱 감지됨 (WebBridge API)');
+    return true;
   }
+
+  // 방법 2: User Agent에서 토스 앱 확인
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('toss') || ua.includes('tossinapp')) {
+    console.log('✅ 토스 앱 감지됨 (User Agent)');
+    return true;
+  }
+
+  // 방법 3: @apps-in-toss/web-framework가 있으면 토스 환경으로 간주
+  try {
+    // 토스 프레임워크에서 제공하는 함수들이 정상 작동하는지 확인
+    const hasFramework = typeof (window as any).__TOSS_WEB_FRAMEWORK__ !== 'undefined';
+    if (hasFramework) {
+      console.log('✅ 토스 앱 감지됨 (Framework)');
+      return true;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  console.log('❌ 토스 앱 아님');
   return false;
 }
 

@@ -14,42 +14,40 @@
   const handleShowTutorial = () => dispatch('show-tutorial');
   const handleResetRecords = () => dispatch('reset-records');
 
-  // 리더보드 사용 가능 여부 확인 (토스 앱에서만 true)
-  let isLeaderboardSupported = false;
+  // 리더보드 사용 가능 여부 확인
+  // 토스 앱이 아니어도 버튼은 표시하고, 클릭 시 에러 처리
+  let isLeaderboardSupported = true; // 항상 버튼 표시
 
   const leaderboardAvailable = isLeaderboardAvailable();
   console.log('🔍 리더보드 디버그:', {
     isLeaderboardAvailable: leaderboardAvailable,
-    hasTossEvents: !!(typeof window !== 'undefined' && window.toss?.events),
-    hasOnAudioFocusChanged: !!(typeof window !== 'undefined' && window.onAudioFocusChanged),
+    hasToss: !!(typeof window !== 'undefined' && window.toss),
     hasTossWebBridge: !!(typeof window !== 'undefined' && window.TossWebBridge),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
   });
 
+  // 버전 체크는 참고용으로만 로그 출력
   if (leaderboardAvailable) {
     try {
-      isLeaderboardSupported = isMinVersionSupported({
+      const versionSupported = isMinVersionSupported({
         android: "5.221.0",
         ios: "5.221.0",
       });
-      console.log('✅ 리더보드 지원 여부:', isLeaderboardSupported);
+      console.log('✅ 토스 앱 버전 체크:', versionSupported);
     } catch (error) {
-      console.error('❌ 리더보드 버전 확인 실패:', error);
+      console.log('⚠️ 버전 체크 실패 (무시):', error);
     }
-  } else {
-    console.log('❌ 토스 앱이 아님 - 리더보드 버튼 숨김');
   }
 
   const handleOpenLeaderboard = async () => {
-    if (!isLeaderboardSupported) {
-      console.warn('리더보드를 지원하지 않는 환경입니다.');
-      return;
-    }
-
     try {
+      console.log('🏆 리더보드 열기 시도...');
       await openGameCenterLeaderboard();
-      logger.log('리더보드 열림');
+      console.log('✅ 리더보드 열림');
     } catch (error) {
-      console.error('리더보드 열기 실패:', error);
+      console.error('❌ 리더보드 열기 실패:', error);
+      // 토스 앱이 아니거나 지원하지 않는 환경에서는 조용히 실패
+      alert('리더보드는 토스 앱에서만 사용할 수 있습니다.');
     }
   };
 </script>
