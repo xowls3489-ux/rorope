@@ -17,15 +17,26 @@
   // 리더보드 사용 가능 여부 확인 (토스 앱에서만 true)
   let isLeaderboardSupported = false;
 
-  if (isLeaderboardAvailable()) {
+  const leaderboardAvailable = isLeaderboardAvailable();
+  console.log('🔍 리더보드 디버그:', {
+    isLeaderboardAvailable: leaderboardAvailable,
+    hasTossEvents: !!(typeof window !== 'undefined' && window.toss?.events),
+    hasOnAudioFocusChanged: !!(typeof window !== 'undefined' && window.onAudioFocusChanged),
+    hasTossWebBridge: !!(typeof window !== 'undefined' && window.TossWebBridge),
+  });
+
+  if (leaderboardAvailable) {
     try {
       isLeaderboardSupported = isMinVersionSupported({
         android: "5.221.0",
         ios: "5.221.0",
       });
+      console.log('✅ 리더보드 지원 여부:', isLeaderboardSupported);
     } catch (error) {
-      logger.log('리더보드 버전 확인 실패:', error);
+      console.error('❌ 리더보드 버전 확인 실패:', error);
     }
+  } else {
+    console.log('❌ 토스 앱이 아님 - 리더보드 버튼 숨김');
   }
 
   const handleOpenLeaderboard = async () => {
