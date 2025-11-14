@@ -418,38 +418,89 @@ export class GameScene {
     }
 
 
-    private createPlatform(x: number, y: number): PlatformGraphics {
+    /**
+     * 플랫폼 풀에서 사용 가능한 플랫폼 가져오기 (없으면 새로 생성)
+     */
+    private getPlatformFromPool(): PlatformGraphics {
         const platform = this.platformPool.find((p) => !p.inUse);
         if (!platform) {
-            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
+            logger.warn('플랫폼 풀 부족! 새로 생성합니다.');
             const newPlatform = new PIXI.Graphics() as PlatformGraphics;
             this.world.addChild(newPlatform);
             this.platformPool.push(newPlatform);
+            return newPlatform;
+        }
+        return platform;
+    }
+
+    /**
+     * 플랫폼 기본 설정 (공통 로직 추출)
+     */
+    private setupPlatformBase(
+        platform: PlatformGraphics,
+        x: number,
+        y: number,
+        width: number,
+        options?: {
+            color?: number;
+            isMoving?: boolean;
+            moveType?: 'horizontal' | 'vertical';
+            moveSpeed?: number;
+            moveRange?: number;
+            initialX?: number;
+            initialY?: number;
+        }
+    ): PlatformGraphics {
+        const color = options?.color ?? COLORS.primary;
+
+        platform.clear();
+        platform.beginFill(color);
+        platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
+        platform.endFill();
+
+        // 테두리 추가 (회색 플랫폼만)
+        if (color !== COLORS.primary) {
+            const borderColor = color === 0x888888 ? 0xcccccc : 0x999999;
+            platform.lineStyle(2, borderColor, 0.4);
+            platform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
         }
 
-        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
-        const width =
-            GAME_CONFIG.platformWidth.min +
+        platform.x = x;
+        platform.y = y;
+        platform.width = width;
+        platform.height = GAME_CONFIG.platformHeight;
+        platform.visible = true;
+        platform.landed = false;
+        platform.comboGiven = false;
+        platform.inUse = true;
+
+        // 이동 설정
+        platform.isMoving = options?.isMoving ?? false;
+        platform.moveType = options?.moveType;
+        platform.moveSpeed = options?.moveSpeed;
+        platform.moveRange = options?.moveRange;
+        platform.moveDirection = options?.isMoving ? 1 : undefined;
+        platform.initialX = options?.initialX;
+        platform.initialY = options?.initialY;
+
+        return platform;
+    }
+
+    /**
+     * 랜덤 너비 계산
+     */
+    private randomPlatformWidth(): number {
+        return GAME_CONFIG.platformWidth.min +
             Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
+    }
 
-        targetPlatform.clear();
-        targetPlatform.beginFill(COLORS.primary);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-        targetPlatform.endFill();
-        targetPlatform.x = x;
-        targetPlatform.y = y;
-        targetPlatform.width = width;
-        targetPlatform.height = GAME_CONFIG.platformHeight;
-        targetPlatform.visible = true;
-        targetPlatform.landed = false;
-        targetPlatform.isMoving = false;
-        targetPlatform.moveType = undefined;
-        targetPlatform.comboGiven = false; // 콤보 초기화
-        targetPlatform.inUse = true;
-
-        gameActions.addPlatform(targetPlatform);
-        animationSystem.platformSpawnAnimation(targetPlatform);
-        return targetPlatform;
+    private createPlatform(x: number, y: number): PlatformGraphics {
+        const platform = this.getPlatformFromPool();
+        const width = this.randomPlatformWidth();
+        this.setupPlatformBase(platform, x, y, width);
+        gameActions.addPlatform(platform);
+        animationSystem.platformSpawnAnimation(platform);
+        return platform;
     }
 
     private createMovingPlatform(
@@ -458,44 +509,19 @@ export class GameScene {
         moveRange: number = 100,
         moveSpeed: number = 1.5
     ): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !p.inUse);
-        if (!platform) {
-            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
-            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
-            this.world.addChild(newPlatform);
-            this.platformPool.push(newPlatform);
-        }
-
-        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
-        const width =
-            GAME_CONFIG.platformWidth.min +
-            Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
-
-        targetPlatform.clear();
-        targetPlatform.beginFill(0x888888);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-        targetPlatform.endFill();
-        targetPlatform.lineStyle(2, 0xcccccc, 0.4);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-
-        targetPlatform.x = x;
-        targetPlatform.y = y;
-        targetPlatform.width = width;
-        targetPlatform.height = GAME_CONFIG.platformHeight;
-        targetPlatform.visible = true;
-        targetPlatform.landed = false;
-        targetPlatform.isMoving = true;
-        targetPlatform.moveType = 'horizontal';
-        targetPlatform.moveSpeed = moveSpeed;
-        targetPlatform.moveRange = moveRange;
-        targetPlatform.moveDirection = 1;
-        targetPlatform.initialX = x;
-        targetPlatform.comboGiven = false; // 콤보 초기화
-        targetPlatform.inUse = true;
-
-        gameActions.addPlatform(targetPlatform);
-        animationSystem.platformSpawnAnimation(targetPlatform);
-        return targetPlatform;
+        const platform = this.getPlatformFromPool();
+        const width = this.randomPlatformWidth();
+        this.setupPlatformBase(platform, x, y, width, {
+            color: 0x888888,
+            isMoving: true,
+            moveType: 'horizontal',
+            moveSpeed,
+            moveRange,
+            initialX: x
+        });
+        gameActions.addPlatform(platform);
+        animationSystem.platformSpawnAnimation(platform);
+        return platform;
     }
 
     private createVerticalMovingPlatform(
@@ -504,44 +530,19 @@ export class GameScene {
         moveRange: number = 100,
         moveSpeed: number = 1.5
     ): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !p.inUse);
-        if (!platform) {
-            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
-            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
-            this.world.addChild(newPlatform);
-            this.platformPool.push(newPlatform);
-        }
-
-        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
-        const width =
-            GAME_CONFIG.platformWidth.min +
-            Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
-
-        targetPlatform.clear();
-        targetPlatform.beginFill(0x666666);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-        targetPlatform.endFill();
-        targetPlatform.lineStyle(2, 0x999999, 0.4);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-
-        targetPlatform.x = x;
-        targetPlatform.y = y;
-        targetPlatform.width = width;
-        targetPlatform.height = GAME_CONFIG.platformHeight;
-        targetPlatform.visible = true;
-        targetPlatform.landed = false;
-        targetPlatform.isMoving = true;
-        targetPlatform.moveType = 'vertical';
-        targetPlatform.moveSpeed = moveSpeed;
-        targetPlatform.moveRange = moveRange;
-        targetPlatform.moveDirection = 1;
-        targetPlatform.initialY = y;
-        targetPlatform.comboGiven = false; // 콤보 초기화
-        targetPlatform.inUse = true;
-
-        gameActions.addPlatform(targetPlatform);
-        animationSystem.platformSpawnAnimation(targetPlatform);
-        return targetPlatform;
+        const platform = this.getPlatformFromPool();
+        const width = this.randomPlatformWidth();
+        this.setupPlatformBase(platform, x, y, width, {
+            color: 0x666666,
+            isMoving: true,
+            moveType: 'vertical',
+            moveSpeed,
+            moveRange,
+            initialY: y
+        });
+        gameActions.addPlatform(platform);
+        animationSystem.platformSpawnAnimation(platform);
+        return platform;
     }
 
     private createRandomMovingPlatform(x: number, y: number): PlatformGraphics {
@@ -596,36 +597,11 @@ export class GameScene {
     }
 
     private createPlatformNoAnimation(x: number, y: number): PlatformGraphics {
-        const platform = this.platformPool.find((p) => !p.inUse);
-        if (!platform) {
-            console.warn('플랫폼 풀 부족! 새로 생성합니다.');
-            const newPlatform = new PIXI.Graphics() as PlatformGraphics;
-            this.world.addChild(newPlatform);
-            this.platformPool.push(newPlatform);
-        }
-
-        const targetPlatform = platform || this.platformPool[this.platformPool.length - 1];
-        const width =
-            GAME_CONFIG.platformWidth.min +
-            Math.random() * (GAME_CONFIG.platformWidth.max - GAME_CONFIG.platformWidth.min);
-
-        targetPlatform.clear();
-        targetPlatform.beginFill(COLORS.primary);
-        targetPlatform.drawRoundedRect(0, 0, width, GAME_CONFIG.platformHeight, 0);
-        targetPlatform.endFill();
-        targetPlatform.x = x;
-        targetPlatform.y = y;
-        targetPlatform.width = width;
-        targetPlatform.height = GAME_CONFIG.platformHeight;
-        targetPlatform.visible = true;
-        targetPlatform.landed = false;
-        targetPlatform.isMoving = false;
-        targetPlatform.moveType = undefined;
-        targetPlatform.comboGiven = false; // 콤보 초기화
-        targetPlatform.inUse = true;
-
-        gameActions.addPlatform(targetPlatform);
-        return targetPlatform;
+        const platform = this.getPlatformFromPool();
+        const width = this.randomPlatformWidth();
+        this.setupPlatformBase(platform, x, y, width);
+        gameActions.addPlatform(platform);
+        return platform;
     }
 
     private startGame(): void {

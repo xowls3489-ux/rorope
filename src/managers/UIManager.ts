@@ -4,6 +4,7 @@ import { gameState } from '../stores/gameStore';
 import { GAME_CONFIG, COLORS } from '../core/config';
 import { animationSystem } from '../systems/animationSystem';
 import { userManager } from './UserManager';
+import { logger } from '../utils/logger';
 
 /**
  * UIManager
@@ -454,34 +455,9 @@ export class UIManager {
         this.retryButton.y = btnY;
 
         // 콘텐츠 컨테이너 스케일 및 위치 조정 (모바일 화면 대응)
-        if (safeWidth > 0 && safeHeight > 0) {
-            const margin = 32;
-            const horizontalScaleCandidates: number[] = [];
-            const verticalScaleCandidates: number[] = [];
-            horizontalScaleCandidates.push(safeWidth / cardWidth);
-            if (safeWidth > margin) {
-                horizontalScaleCandidates.push((safeWidth - margin) / cardWidth);
-            }
-            verticalScaleCandidates.push(safeHeight / cardHeight);
-            if (safeHeight > margin) {
-                verticalScaleCandidates.push((safeHeight - margin) / cardHeight);
-            }
-            let scale = 1;
-            scale = Math.min(scale, ...horizontalScaleCandidates, ...verticalScaleCandidates);
-            scale = Math.min(1, Math.max(0.5, scale));
-            this.gameOverContent.scale.set(scale);
-            const scaledWidth = cardWidth * scale;
-            const scaledHeight = cardHeight * scale;
-            const offsetX = left + Math.max(0, (safeWidth - scaledWidth) / 2);
-            const upwardOffset = Math.min(scaledHeight * 0.12, Math.max(24, safeHeight * 0.08));
-            const offsetY = top + Math.max(0, (safeHeight - scaledHeight) / 2 - upwardOffset);
-            this.gameOverContent.position.set(offsetX, offsetY);
-        } else {
-            this.gameOverContent.scale.set(1);
-            const fallbackHeight = safeHeight > 0 ? safeHeight : GAME_CONFIG.height;
-            const fallbackY = top + Math.max(16, fallbackHeight * 0.15);
-            this.gameOverContent.position.set(left + 16, fallbackY);
-        }
+        const position = this.calculateModalScaleAndPosition(cardWidth, cardHeight, insets, GAME_CONFIG.uiMarginLarge);
+        this.gameOverContent.scale.set(position.scale);
+        this.gameOverContent.position.set(position.x, position.y);
 
         this.gameOverContainer.visible = false;
         this.pauseButton.visible = false; // 게임오버 시 일시정지 버튼 숨김
@@ -904,6 +880,54 @@ export class UIManager {
         return { top, right, bottom, left };
     }
 
+    /**
+     * 모달 스케일 및 위치 계산 (공통 로직)
+     */
+    private calculateModalScaleAndPosition(
+        contentWidth: number,
+        contentHeight: number,
+        insets: { top: number; right: number; bottom: number; left: number },
+        margin: number = GAME_CONFIG.uiMarginMedium
+    ): { scale: number; x: number; y: number } {
+        const { top, right, bottom, left } = insets;
+        const availableWidth = Math.max(0, GAME_CONFIG.width - left - right);
+        const availableHeight = Math.max(0, GAME_CONFIG.height - top - bottom);
+
+        if (availableWidth <= 0 || availableHeight <= 0) {
+            logger.warn('Available modal area is invalid', { availableWidth, availableHeight });
+            return {
+                scale: 1,
+                x: left + 16,
+                y: top + Math.max(16, availableHeight * 0.12)
+            };
+        }
+
+        // 스케일 후보 계산
+        const scaleCandidates: number[] = [
+            1,
+            availableWidth / contentWidth,
+            availableHeight / contentHeight
+        ];
+
+        if (availableWidth > margin) {
+            scaleCandidates.push((availableWidth - margin) / contentWidth);
+        }
+        if (availableHeight > margin) {
+            scaleCandidates.push((availableHeight - margin) / contentHeight);
+        }
+
+        const scale = Math.max(0.5, Math.min(1, Math.min(...scaleCandidates)));
+        const scaledWidth = contentWidth * scale;
+        const scaledHeight = contentHeight * scale;
+
+        // 중앙 정렬 with upward lift
+        const x = left + Math.max(0, (availableWidth - scaledWidth) / 2);
+        const lift = Math.min(scaledHeight * 0.12, Math.max(20, availableHeight * 0.08));
+        const y = top + Math.max(0, (availableHeight - scaledHeight) / 2 - lift);
+
+        return { scale, x, y };
+    }
+
     private refreshUILayout(): void {
         const width = GAME_CONFIG.width;
         const height = GAME_CONFIG.height;
@@ -1031,31 +1055,10 @@ export class UIManager {
                 this.resumeBtn.y = Math.max(this.resetRecordsBtn.y + resetHeight + 8, this.resumeBtn.y - shift);
             }
 
-            if (availableWidth > 0 && availableHeight > 0) {
-                const margin = 24;
-                const scaleCandidates: number[] = [1];
-                scaleCandidates.push(availableWidth / panelWidth);
-                if (availableWidth > margin) {
-                    scaleCandidates.push((availableWidth - margin) / panelWidth);
-                }
-                scaleCandidates.push(availableHeight / panelHeight);
-                if (availableHeight > margin) {
-                    scaleCandidates.push((availableHeight - margin) / panelHeight);
-                }
-                let panelScale = Math.min(...scaleCandidates);
-                panelScale = Math.min(1, Math.max(0.5, panelScale));
-                this.pauseContent.scale.set(panelScale);
-                const scaledPanelWidth = panelWidth * panelScale;
-                const scaledPanelHeight = panelHeight * panelScale;
-                const contentX = left + Math.max(0, (availableWidth - scaledPanelWidth) / 2);
-                const lift = Math.min(scaledPanelHeight * 0.12, Math.max(20, availableHeight * 0.08));
-                const contentY = top + Math.max(0, (availableHeight - scaledPanelHeight) / 2 - lift);
-                this.pauseContent.position.set(contentX, contentY);
-            } else {
-                this.pauseContent.scale.set(1);
-                const fallbackY = top + Math.max(16, (availableHeight || height) * 0.12);
-                this.pauseContent.position.set(left + 16, fallbackY);
-            }
+            // 일시정지 모달 위치 및 스케일 계산
+            const pausePosition = this.calculateModalScaleAndPosition(panelWidth, panelHeight, { top, right, bottom, left });
+            this.pauseContent.scale.set(pausePosition.scale);
+            this.pauseContent.position.set(pausePosition.x, pausePosition.y);
         }
 
         this.updateGameOverPosition();
