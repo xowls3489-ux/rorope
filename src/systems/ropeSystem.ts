@@ -104,15 +104,24 @@ export class RopeSystem {
                 hitPlatform.comboGiven = true;
                 gameActions.addCombo();
                 shouldGiveCombo = true;
-                
+
                 const game = gameState.get();
                 const newCombo = game.combo || 0;
-                
+
+                // 콤보에 따른 점수 배율 계산
+                // 1-9: x1, 10-19: x2, 20-29: x3, 30+: x4
+                const scoreMultiplier = Math.min(4, Math.floor(newCombo / 10) + 1);
+                const baseScore = 10;
+                const earnedScore = baseScore * scoreMultiplier;
+                gameActions.addScore(earnedScore);
+
+                logger.log(`+${earnedScore}점 (${newCombo}콤보, x${scoreMultiplier})`);
+
                 // 콤보 사운드 재생 (10의 배수일 때 특별 사운드)
                 if (newCombo % 10 === 0 && newCombo > 0) {
                     // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
                     soundSystem.play('babat10');
-                    logger.log(`🎉 ${newCombo} 콤보! 바밧~`);
+                    logger.log(`🎉 ${newCombo} 콤보! x${scoreMultiplier} 배율!`);
                 } else {
                     // 일반 콤보 증가 사운드
                     soundSystem.play('comboUp');

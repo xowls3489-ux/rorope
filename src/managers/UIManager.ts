@@ -250,13 +250,28 @@ export class UIManager {
         const combo = game.combo || 0;
 
         if (combo > 0) {
-            this.comboText.text = `${combo} COMBO`;
+            // 콤보에 따른 점수 배율 계산 (로프 시스템과 동일)
+            const scoreMultiplier = Math.min(4, Math.floor(combo / 10) + 1);
+
+            // 배율 표시 (x1은 숨김)
+            const multiplierText = scoreMultiplier > 1 ? ` x${scoreMultiplier}` : '';
+            this.comboText.text = `${combo} COMBO${multiplierText}`;
             this.comboText.visible = true;
-            this.comboText.style.fill = 0xFFFFFF;
+
+            // 배율에 따른 색상 변화
+            if (scoreMultiplier >= 4) {
+                this.comboText.style.fill = 0xFFD700; // 골드 (x4)
+            } else if (scoreMultiplier >= 3) {
+                this.comboText.style.fill = 0xFFAAAA; // 밝은 빨강 (x3)
+            } else if (scoreMultiplier >= 2) {
+                this.comboText.style.fill = 0xFFFFAA; // 노랑 (x2)
+            } else {
+                this.comboText.style.fill = 0xFFFFFF; // 흰색 (x1)
+            }
 
             // 콤보가 높을수록 크기 증가
             const baseSize = 28;
-            const sizeBoost = Math.min(12, combo * 1.5);
+            const sizeBoost = Math.min(16, combo * 1.2);
             this.comboText.style.fontSize = baseSize + sizeBoost;
         } else {
             this.comboText.visible = false;

@@ -389,16 +389,29 @@ export class VFXSystem {
     spawnComboParticleBurst(x: number, y: number, combo: number): void {
         if (!this.fxLayer || !this.particles || this.particles.length === 0) return;
 
+        // 콤보에 따른 점수 배율 계산
+        const scoreMultiplier = Math.min(4, Math.floor(combo / 10) + 1);
+
+        // 배율에 따른 색상 (x1: 흰색, x2: 노랑, x3: 빨강, x4: 골드)
+        let particleColor = 0xFFFFFF;
+        if (scoreMultiplier >= 4) {
+            particleColor = 0xFFD700; // 골드
+        } else if (scoreMultiplier >= 3) {
+            particleColor = 0xFF8888; // 빨강
+        } else if (scoreMultiplier >= 2) {
+            particleColor = 0xFFFF88; // 노랑
+        }
+
         // 콤보가 높을수록 더 많은 파티클
-        const count = Math.min(12, 6 + combo);
-        
+        const count = Math.min(15, 6 + combo);
+
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
             const speed = 4 + Math.random() * 4 + combo * 0.5;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
             const size = 3 + Math.random() * 2 + combo * 0.3;
-            this.spawnParticle(x, y, vx, vy, 0xFFFFFF, size); // 흰색
+            this.spawnParticle(x, y, vx, vy, particleColor, size);
         }
     }
 
@@ -408,10 +421,23 @@ export class VFXSystem {
     spawnComboShockwave(x: number, y: number, combo: number): void {
         if (!this.fxLayer || combo < 3) return;
 
+        // 콤보에 따른 점수 배율 계산
+        const scoreMultiplier = Math.min(4, Math.floor(combo / 10) + 1);
+
+        // 배율에 따른 색상
+        let shockwaveColor = 0xFFFFFF;
+        if (scoreMultiplier >= 4) {
+            shockwaveColor = 0xFFD700; // 골드
+        } else if (scoreMultiplier >= 3) {
+            shockwaveColor = 0xFF8888; // 빨강
+        } else if (scoreMultiplier >= 2) {
+            shockwaveColor = 0xFFFF88; // 노랑
+        }
+
         const shockwave = new PIXI.Graphics();
         const lineWidth = 2 + combo * 0.3;
-        
-        shockwave.lineStyle(lineWidth, 0xFFFFFF, 0.7);
+
+        shockwave.lineStyle(lineWidth, shockwaveColor, 0.7);
         shockwave.drawCircle(0, 0, 15);
         shockwave.x = x;
         shockwave.y = y;
