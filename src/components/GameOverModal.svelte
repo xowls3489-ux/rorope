@@ -28,8 +28,8 @@
       <section class="stats-grid">
         <article class="stat-card">
           <h3 class="stat-label">Score</h3>
-          <p class="stat-value">{score} m</p>
-          <p class="stat-sub">Best: {bestScore} m</p>
+          <p class="stat-value">{score}</p>
+          <p class="stat-sub">Best: {bestScore}</p>
         </article>
         <article class="stat-card">
           <h3 class="stat-label">Max Combo</h3>
