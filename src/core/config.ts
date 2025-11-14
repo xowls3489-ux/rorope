@@ -100,7 +100,33 @@ export const GAME_CONFIG = {
         ropeRelease: 120,
         jump: 100,
         gameOver: 500
-    }
+    },
+
+    // 플레이어 렌더링 설정
+    playerArmLength: 10,
+    playerOuterRadius: 15,
+    playerInnerRadius: 6,
+
+    // 풀링 설정
+    starDestroyRadius: 200,
+
+    // 물리 설정 (추가)
+    pullMaxSpeedX: 20,
+    pullMaxSpeedY: 10,
+
+    // VFX 설정
+    vfxFadeDuration: 8,
+    vfxRippleDuration: 20,
+    vfxFlashDuration: 10,
+    vfxShockwaveDuration: 15,
+    vfxExplosionDuration: 10,
+    vfxDefaultParticleCount: 4,
+
+    // UI 여백 설정
+    uiMarginSmall: 10,
+    uiMarginMedium: 24,
+    uiMarginLarge: 32,
+    uiBaseSize: 28
 };
 
 export const COLORS = {

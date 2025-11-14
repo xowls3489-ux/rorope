@@ -262,7 +262,7 @@ export class GameScene {
 
         // 팔 애니메이션
         if (armAngle !== undefined) {
-            const armLength = 10;
+            const armLength = GAME_CONFIG.playerArmLength;
             const armX = Math.cos(armAngle) * armLength;
             const armY = Math.sin(armAngle) * armLength;
             this.player.moveTo(0, 0);
@@ -836,8 +836,8 @@ export class GameScene {
         const velocityMagnitude = finalAccel;
         const dirVx = (dx / dist) * velocityMagnitude;
         const dirVy = (dy / dist) * velocityMagnitude;
-        const pullMaxSpeedX = 20;
-        const pullMaxSpeedY = 10;
+        const pullMaxSpeedX = GAME_CONFIG.pullMaxSpeedX;
+        const pullMaxSpeedY = GAME_CONFIG.pullMaxSpeedY;
         const clampedVx = Math.max(-pullMaxSpeedX, Math.min(pullMaxSpeedX, dirVx));
         const clampedVy = Math.max(-pullMaxSpeedY, Math.min(pullMaxSpeedY, dirVy));
         gameActions.updatePlayerVelocity(clampedVx, clampedVy);
@@ -1086,8 +1086,8 @@ export class GameScene {
 
         star.beginFill(0xffffff);
         const points: number[] = [];
-        const outerRadius = 15;
-        const innerRadius = 6;
+        const outerRadius = GAME_CONFIG.playerOuterRadius;
+        const innerRadius = GAME_CONFIG.playerInnerRadius;
 
         for (let i = 0; i < 10; i++) {
             const angle = (i * Math.PI) / 5 - Math.PI / 2;
@@ -1319,7 +1319,7 @@ export class GameScene {
 
     private destroyPlatformsInPath(playerX: number, playerY: number): void {
         const currentPlatforms = platforms.get();
-        const destroyRadius = 200;
+        const destroyRadius = GAME_CONFIG.starDestroyRadius;
 
         currentPlatforms.forEach((platform) => {
             const pg = platform as PlatformGraphics;

@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { logger } from '../utils/logger';
+import { GAME_CONFIG } from '../core/config';
 
 interface Particle {
     graphics: PIXI.Graphics;
@@ -188,7 +189,7 @@ export class VFXSystem {
         this.fxLayer.addChild(line);
 
         // 페이드 아웃 후 제거
-        const fadeDuration = 8; // 프레임 수
+        const fadeDuration = GAME_CONFIG.vfxFadeDuration; // 프레임 수
         let frames = 0;
         const fadeTick = () => {
             frames++;
@@ -221,7 +222,7 @@ export class VFXSystem {
         this.fxLayer.addChild(ripple);
 
         let frames = 0;
-        const maxFrames = 20;
+        const maxFrames = GAME_CONFIG.vfxRippleDuration;
         const rippleTick = () => {
             frames++;
             if (!ripple.parent) return;
@@ -299,7 +300,7 @@ export class VFXSystem {
 
         // 방사형 파티클 효과 (최적화: 6 -> 4개로 감소)
         if (this.particles && this.particles.length > 0) {
-            const count = 4;
+            const count = GAME_CONFIG.vfxDefaultParticleCount;
             for (let i = 0; i < count; i++) {
                 const angle = (Math.PI * 2 * i) / count;
                 const speed = 6 + Math.random() * 4;
@@ -313,7 +314,7 @@ export class VFXSystem {
 
         // 플래시 페이드 아웃
         let frames = 0;
-        const maxFrames = 10;
+        const maxFrames = GAME_CONFIG.vfxFlashDuration;
         const flashTick = () => {
             frames++;
             if (!flash.parent) return;
@@ -418,7 +419,7 @@ export class VFXSystem {
         this.fxLayer.addChild(shockwave);
 
         let frames = 0;
-        const maxFrames = 15;
+        const maxFrames = GAME_CONFIG.vfxShockwaveDuration;
         const shockwaveTick = () => {
             frames++;
             if (!shockwave.parent) return;
@@ -501,7 +502,7 @@ export class VFXSystem {
         this.fxLayer.addChild(shockwave);
 
         let frames = 0;
-        const maxFrames = 10;
+        const maxFrames = GAME_CONFIG.vfxExplosionDuration;
         const shockwaveTick = () => {
             frames++;
             if (!shockwave.parent) return;

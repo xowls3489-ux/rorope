@@ -9,6 +9,7 @@ export class SoundSystem {
   private masterVolume: number = 0.5;
   private isMuted: boolean = false;
   private audioContextUnlocked: boolean = false;
+  private soundsInitialized: boolean = false; // 사운드 초기화 성공 여부
   private focusPausedSounds: Set<string> = new Set();
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
@@ -65,8 +66,9 @@ export class SoundSystem {
   }
 
   private initSounds(): void {
-    // 로프 발사 사운드 (swing.wav)
-    const ropeShootSound = new Howl({
+    try {
+      // 로프 발사 사운드 (swing.wav)
+      const ropeShootSound = new Howl({
       src: ['/sounds/sfx/swing.wav'],
       volume: 0.4,
       preload: true,
@@ -175,18 +177,24 @@ export class SoundSystem {
       rate: 1.0
     });
 
-    this.sounds.set('ropeShoot', ropeShootSound);
-    this.sounds.set('hit', hitSound); // 플랫폼 히트
-    this.sounds.set('comboUp', comboUpSound); // 콤보 증가
-    this.sounds.set('babat10', babat10ComboSound); // 10콤보 특별 사운드
-    this.sounds.set('ropeRelease', ropeReleaseSound);
-    this.sounds.set('landing', landingSound);
-    this.sounds.set('swing', swingSound);
-    this.sounds.set('gameOver', gameOverSound);
-    this.sounds.set('score', scoreSound);
-    this.sounds.set('background', backgroundMusic); // 게임 배경음
-    this.sounds.set('titleBgm', titleMusic); // 타이틀 배경음
-    this.sounds.set('jump', jumpSound);
+      this.sounds.set('ropeShoot', ropeShootSound);
+      this.sounds.set('hit', hitSound); // 플랫폼 히트
+      this.sounds.set('comboUp', comboUpSound); // 콤보 증가
+      this.sounds.set('babat10', babat10ComboSound); // 10콤보 특별 사운드
+      this.sounds.set('ropeRelease', ropeReleaseSound);
+      this.sounds.set('landing', landingSound);
+      this.sounds.set('swing', swingSound);
+      this.sounds.set('gameOver', gameOverSound);
+      this.sounds.set('score', scoreSound);
+      this.sounds.set('background', backgroundMusic); // 게임 배경음
+      this.sounds.set('titleBgm', titleMusic); // 타이틀 배경음
+      this.sounds.set('jump', jumpSound);
+
+      this.soundsInitialized = true;
+    } catch (error) {
+      logger.error('Failed to initialize sounds:', error);
+      this.soundsInitialized = false;
+    }
   }
 
   // 프로그래매틱 톤 생성 (Web Audio API 사용)
@@ -214,12 +222,18 @@ export class SoundSystem {
     if (this.isMuted) {
       return;
     }
-    
+
+    // 사운드 초기화 실패 시 재생하지 않음
+    if (!this.soundsInitialized) {
+      logger.log('Sounds not initialized, skipping sound:', soundName);
+      return;
+    }
+
     if (!this.audioContextUnlocked) {
       logger.log('AudioContext not unlocked yet, skipping sound:', soundName);
       return;
     }
-    
+
     const sound = this.sounds.get(soundName);
     if (sound) {
       try {
