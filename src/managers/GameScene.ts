@@ -1148,18 +1148,23 @@ export class GameScene {
     private managePlatforms(): void {
         const currentPlatforms = platforms.get();
 
-        const shouldSpawnStar =
-            this.scrollOffsetX >= GAME_CONFIG.starMinDistance &&
-            Math.random() < GAME_CONFIG.starSpawnChance &&
-            this.powerupStars.filter((s) => !s.collected).length < 3;
-
-        if (shouldSpawnStar) {
-            const starX = GAME_CONFIG.width + 400 + Math.random() * 200;
-            const starY = 100 + Math.random() * (GAME_CONFIG.height - 300);
-            this.spawnPowerupStar(starX, starY);
+        // 최적화: filter 대신 단일 루프에서 카운트
+        if (this.scrollOffsetX >= GAME_CONFIG.starMinDistance &&
+            Math.random() < GAME_CONFIG.starSpawnChance) {
+            let uncollectedCount = 0;
+            for (let i = 0; i < this.powerupStars.length; i++) {
+                if (!this.powerupStars[i].collected && ++uncollectedCount >= 3) break;
+            }
+            if (uncollectedCount < 3) {
+                const starX = GAME_CONFIG.width + 400 + Math.random() * 200;
+                const starY = 100 + Math.random() * (GAME_CONFIG.height - 300);
+                this.spawnPowerupStar(starX, starY);
+            }
         }
 
-        const filteredPlatforms = currentPlatforms.filter((platform) => {
+        // 최적화: filter 대신 역방향 반복으로 제거
+        for (let i = currentPlatforms.length - 1; i >= 0; i--) {
+            const platform = currentPlatforms[i];
             if (platform.x + (platform as PlatformGraphics).width < -200) {
                 const pg = platform as PlatformGraphics;
                 pg.visible = false;
@@ -1171,10 +1176,11 @@ export class GameScene {
                 pg.moveDirection = undefined;
                 pg.initialX = undefined;
                 pg.initialY = undefined;
-                return false;
+                currentPlatforms.splice(i, 1);
             }
-            return true;
-        });
+        }
+
+        const filteredPlatforms = currentPlatforms;
         platforms.set(filteredPlatforms);
 
         let rightmostPlatformEnd = 0;

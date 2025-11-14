@@ -570,7 +570,7 @@ export class VFXSystem {
         // fxLayer가 초기화되지 않았으면 리턴
         if (!this.fxLayer || !this.particles) return;
 
-        // 파티클 업데이트
+        // 파티클 업데이트 (최적화: 조건문 병합, 불필요한 체크 제거)
         for (const particle of this.particles) {
             if (!particle.visible || !particle.graphics) continue;
 
@@ -580,45 +580,38 @@ export class VFXSystem {
             particle.vx *= 0.98; // 점진적 감속
             particle.vy *= 0.98;
 
+            const graphics = particle.graphics;
+
             if (particle.alpha <= 0) {
                 particle.visible = false;
-                if (particle.graphics) {
-                    particle.graphics.visible = false;
-                }
-            } else if (particle.graphics) {
+                graphics.visible = false;
+            } else {
                 // 크기 변화 효과 (점진적으로 작아짐)
                 if (particle.scale !== undefined) {
                     particle.scale = Math.max(0.3, particle.scale - 0.02);
-                    particle.graphics.scale.set(particle.scale);
+                    graphics.scale.set(particle.scale);
                 }
-                particle.graphics.x = particle.x;
-                particle.graphics.y = particle.y;
-                particle.graphics.alpha = particle.alpha;
+                graphics.x = particle.x;
+                graphics.y = particle.y;
+                graphics.alpha = particle.alpha;
             }
         }
 
         // fxLayer는 항상 완전히 불투명하게 유지 (개별 효과만 페이드)
         this.fxLayer.alpha = 1.0;
 
-        // 레이어 내 모든 자식의 커스텀 업데이트 실행 (선 효과 페이드, 파동 효과 등)
-        if (this.fxLayer.children) {
-            this.fxLayer.children.forEach(child => {
-                if ((child as any).vfxFade) {
-                    (child as any).vfxFade();
-                }
-                if ((child as any).vfxRipple) {
-                    (child as any).vfxRipple();
-                }
-                if ((child as any).vfxFlash) {
-                    (child as any).vfxFlash();
-                }
-                if ((child as any).vfxShockwave) {
-                    (child as any).vfxShockwave();
-                }
-                if ((child as any).vfxExplosionShockwave) {
-                    (child as any).vfxExplosionShockwave();
-                }
-            });
+        // 레이어 내 모든 자식의 커스텀 업데이트 실행 (최적화: 단일 루프로 통합)
+        const children = this.fxLayer.children;
+        if (children) {
+            for (let i = 0; i < children.length; i++) {
+                const child: any = children[i];
+                // 최적화: 각 메서드 존재 여부를 한번만 체크하고 실행
+                child.vfxFade?.();
+                child.vfxRipple?.();
+                child.vfxFlash?.();
+                child.vfxShockwave?.();
+                child.vfxExplosionShockwave?.();
+            }
         }
     }
 
