@@ -237,8 +237,15 @@ export class UIManager {
      * 점수 업데이트
      */
     public updateScore(): void {
-        const meters = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
-        this.scoreText.text = `${meters} m`;
+        const game = gameState.get();
+        // 거리 점수 (1m = 1점)
+        const distanceScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+        // 콤보 보너스 점수
+        const comboBonus = game.score || 0;
+        // 총 점수
+        const totalScore = distanceScore + comboBonus;
+
+        this.scoreText.text = `${totalScore}`;
         animationSystem.scoreAnimation(this.scoreText);
     }
 

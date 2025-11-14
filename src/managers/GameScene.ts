@@ -1414,8 +1414,11 @@ export class GameScene {
                 outLeft,
             });
 
-            // 최종 점수 계산 (미터 단위)
-            const finalScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+            // 최종 점수 계산 (거리 점수 + 콤보 보너스)
+            const game = gameState.get();
+            const distanceScore = Math.floor(Math.max(0, this.scrollOffsetX) / 100);
+            const comboBonus = game.score || 0;
+            const finalScore = distanceScore + comboBonus;
 
             // 토스 리더보드에 점수 제출
             this.submitScoreToLeaderboard(finalScore);
@@ -1430,8 +1433,7 @@ export class GameScene {
                 this.audioManager.playGameOver();
             }, 300);
 
-            // 신기록 달성 시 축하 효과
-            const game = gameState.get();
+            // 신기록 달성 시 축하 효과 (위에서 이미 가져온 game 변수 재사용)
             if (game.isNewRecord) {
                 const centerX = GAME_CONFIG.width / 2;
                 const centerY = GAME_CONFIG.height / 2;
