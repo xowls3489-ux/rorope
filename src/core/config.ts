@@ -76,8 +76,8 @@ export const GAME_CONFIG = {
     invincibleDuration: 3000,
     invincibleSpeed: 15,
     invincibleTargetY: 0.5,
-    starSpawnChance: 0.05,
-    starMinDistance: 8000,
+    starSpawnChance: 0.12, // 5% → 12% (더 자주 등장)
+    starMinDistance: 4000, // 8000 → 4000 (더 빨리 등장)
     
     // 게임오버 존 설정 (화면 밖으로 얼마나 나갈 수 있는지)
     gameOverBoundaryTop: -300, // 위쪽 (음수: 화면 위로 300px까지 허용)

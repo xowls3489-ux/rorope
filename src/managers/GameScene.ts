@@ -249,10 +249,33 @@ export class GameScene {
 
     private drawStickman(armAngle?: number, velocityY?: number): void {
         this.player.clear();
-        this.player.lineStyle(2.5, 0xffffff, 1);
+
+        const game = gameState.get();
+        const isInvincible = game.isInvincible;
+
+        // 무적 모드 시 골드 색상과 글로우 효과
+        if (isInvincible) {
+            const time = performance.now() * 0.003;
+            const pulse = 0.8 + Math.sin(time * 8) * 0.2;
+
+            // 외곽 글로우 (더 두껍고 밝은 오라)
+            this.player.lineStyle(8, 0xFFD700, 0.4 * pulse);
+            this.player.drawCircle(0, -10, 8);
+
+            // 중간 글로우
+            this.player.lineStyle(5, 0xFFFFAA, 0.6 * pulse);
+            this.player.drawCircle(0, -10, 6);
+
+            // 메인 라인 스타일 (골드)
+            this.player.lineStyle(3, 0xFFD700, 1);
+            this.player.beginFill(0xFFD700);
+        } else {
+            // 일반 모드 (흰색)
+            this.player.lineStyle(2.5, 0xffffff, 1);
+            this.player.beginFill(0xffffff);
+        }
 
         // 머리
-        this.player.beginFill(0xffffff);
         this.player.drawCircle(0, -10, 5);
         this.player.endFill();
 
@@ -867,10 +890,20 @@ export class GameScene {
         this.player.visible = true;
 
         if (game.isInvincible) {
-            const time = performance.now() * 0.01;
-            this.player.alpha = 0.7 + Math.sin(time) * 0.3;
+            const time = performance.now() * 0.003;
+            // 더 부드러운 알파 변화
+            this.player.alpha = 0.9 + Math.sin(time * 6) * 0.1;
+
+            // 크기 펄스 효과
+            const scaleBoost = 1.1 + Math.sin(time * 8) * 0.05;
+            try {
+                this.player.scale?.set?.(scaleBoost, scaleBoost);
+            } catch {}
         } else {
             this.player.alpha = 1;
+            try {
+                this.player.scale?.set?.(1, 1);
+            } catch {}
         }
 
         if (rope.isFlying || rope.isPulling || rope.isActive) {
@@ -886,10 +919,6 @@ export class GameScene {
         const velocityY = playerPos.velocityY;
         const angle = Math.atan2(velocityY, velocityX);
         this.player.rotation = angle * 0.3;
-
-        try {
-            this.player.scale?.set?.(1, 1);
-        } catch {}
     }
 
     private updateCameraZoom(): void {
@@ -1058,9 +1087,27 @@ export class GameScene {
     }
 
     private spawnPowerupStar(x: number, y: number): void {
-        const star = new PIXI.Graphics();
+        const container = new PIXI.Container();
 
-        star.beginFill(0xffffff);
+        // 외곽 글로우 효과 (큰 별)
+        const glow = new PIXI.Graphics();
+        glow.beginFill(0xFFD700, 0.3);
+        const glowPoints: number[] = [];
+        const glowOuter = GAME_CONFIG.playerOuterRadius * 1.8;
+        const glowInner = GAME_CONFIG.playerInnerRadius * 1.8;
+
+        for (let i = 0; i < 10; i++) {
+            const angle = (i * Math.PI) / 5 - Math.PI / 2;
+            const radius = i % 2 === 0 ? glowOuter : glowInner;
+            glowPoints.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        glow.drawPolygon(glowPoints);
+        glow.endFill();
+        container.addChild(glow);
+
+        // 메인 별 (골드 색상)
+        const star = new PIXI.Graphics();
+        star.beginFill(0xFFD700);
         const points: number[] = [];
         const outerRadius = GAME_CONFIG.playerOuterRadius;
         const innerRadius = GAME_CONFIG.playerInnerRadius;
@@ -1073,17 +1120,20 @@ export class GameScene {
         star.drawPolygon(points);
         star.endFill();
 
-        star.lineStyle(3, 0xffffff, 0.5);
+        star.lineStyle(2, 0xFFFFFF, 0.8);
         star.drawPolygon(points);
+        container.addChild(star);
 
-        star.x = x;
-        star.y = y;
-        star.baseX = x;
+        container.x = x;
+        container.y = y;
+        (container as any).baseX = x;
+        (container as any).twinklePhase = Math.random() * Math.PI * 2;
+        (container as any).rotationSpeed = 0.02 + Math.random() * 0.01;
+        (container as any).glow = glow;
+        (container as any).mainStar = star;
 
-        this.world.addChild(star);
-        this.powerupStars.push({ graphic: star, collected: false });
-
-        star.twinklePhase = Math.random() * Math.PI * 2;
+        this.world.addChild(container);
+        this.powerupStars.push({ graphic: container, collected: false });
     }
 
     private updatePowerupStars(): void {
@@ -1092,30 +1142,57 @@ export class GameScene {
 
         for (let i = this.powerupStars.length - 1; i >= 0; i--) {
             const starData = this.powerupStars[i];
-            const star = starData.graphic;
+            const container = starData.graphic;
 
             if (starData.collected) continue;
 
-            const baseX = (star as any).baseX || star.x;
-            star.x = baseX - this.scrollOffsetX;
+            const baseX = (container as any).baseX || container.x;
+            container.x = baseX - this.scrollOffsetX;
 
-            const twinkle = Math.sin(time * 3 + (star as any).twinklePhase);
-            star.alpha = 0.7 + twinkle * 0.3;
-            star.scale.set(1 + twinkle * 0.1);
+            // 반짝임 효과
+            const twinkle = Math.sin(time * 3 + (container as any).twinklePhase);
+            const pulseScale = 1 + twinkle * 0.15;
+            container.scale.set(pulseScale);
 
-            const dx = playerPos.x - star.x;
-            const dy = playerPos.y - star.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            // 회전 애니메이션
+            const rotationSpeed = (container as any).rotationSpeed || 0.02;
+            container.rotation += rotationSpeed;
 
-            if (dist < 30) {
-                starData.collected = true;
-                star.visible = false;
-                this.activateInvincibleMode();
-                this.audioManager.playRopeShoot();
+            // 글로우 펄스 효과
+            const glow = (container as any).glow;
+            if (glow) {
+                glow.alpha = 0.3 + twinkle * 0.2;
+                glow.scale.set(1 + twinkle * 0.3);
             }
 
-            if (star.x < -100) {
-                this.world.removeChild(star);
+            // 자기장 효과 (가까이 가면 끌어당김)
+            const dx = playerPos.x - container.x;
+            const dy = playerPos.y - container.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 80) {
+                const pullStrength = (80 - dist) / 80;
+                container.x += (dx * pullStrength * 0.1);
+                container.y += (dy * pullStrength * 0.1);
+            }
+
+            // 수집 판정
+            if (dist < 35) {
+                starData.collected = true;
+
+                // 수집 시 폭발 효과
+                vfxSystem.spawnComboParticleBurst(container.x, container.y, 20);
+                vfxSystem.spawnComboShockwave(container.x, container.y, 20);
+
+                container.visible = false;
+                this.activateInvincibleMode();
+                this.audioManager.playScore();
+                logger.log('⭐ 파워업 획득!');
+            }
+
+            // 화면 밖으로 나가면 제거
+            if (container.x < -100) {
+                this.world.removeChild(container);
                 this.powerupStars.splice(i, 1);
             }
         }
@@ -1289,9 +1366,11 @@ export class GameScene {
 
     private updateInvincibleMode(): void {
         const game = gameState.get();
+        const now = Date.now();
 
-        if (game.isInvincible && Date.now() > this.invincibleEndTime) {
+        if (game.isInvincible && now > this.invincibleEndTime) {
             gameActions.deactivateInvincible();
+            this.uiManager.updateInvincibleIndicator(false);
             logger.log('[무적 모드] 종료');
         }
 
@@ -1308,6 +1387,10 @@ export class GameScene {
             gameActions.updatePlayerVelocity(GAME_CONFIG.invincibleSpeed, 0);
 
             this.destroyPlatformsInPath(playerPos.x, playerPos.y);
+
+            // UI 업데이트 (남은 시간 표시)
+            const remainingTime = Math.max(0, this.invincibleEndTime - now);
+            this.uiManager.updateInvincibleIndicator(true, remainingTime, GAME_CONFIG.invincibleDuration);
 
             if (this.frameCounter % 2 === 0) {
                 vfxSystem.spawnComboRisingParticles(playerPos.x, playerPos.y, 10);

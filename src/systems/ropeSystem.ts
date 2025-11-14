@@ -122,6 +122,10 @@ export class RopeSystem {
                     // 10, 20, 30... 콤보 달성 시 "바밧~" 사운드
                     soundSystem.play('babat10');
                     logger.log(`🎉 ${newCombo} 콤보! x${scoreMultiplier} 배율!`);
+
+                    // "바밧~" 텍스트 팝업 표시
+                    const playerPos = playerState.get();
+                    vfxSystem.spawnComboTextPopup(playerPos.x, playerPos.y, newCombo);
                 } else {
                     // 일반 콤보 증가 사운드
                     soundSystem.play('comboUp');

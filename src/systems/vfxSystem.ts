@@ -26,6 +26,7 @@ export class VFXSystem {
     private particles: Particle[] = [];
     private readonly particlePoolSize = 30; // 최적화: 50 -> 30으로 감소
     private slowMotionOverlay?: PIXI.Graphics;
+    private activeTextPopups: PIXI.Text[] = []; // 활성화된 텍스트 팝업 추적
 
     /**
      * FX 레이어 초기화
@@ -657,6 +658,15 @@ export class VFXSystem {
             }
         });
 
+        // 활성화된 텍스트 팝업 제거
+        this.activeTextPopups.forEach(textObj => {
+            if (textObj.parent) {
+                this.fxLayer.removeChild(textObj);
+            }
+            textObj.destroy();
+        });
+        this.activeTextPopups = [];
+
         // fxLayer의 모든 자식 제거 (선 효과 등, 파티클과 오버레이는 유지)
         const particleGraphics = this.particles.map(p => p.graphics);
         this.fxLayer.children.slice().forEach(child => {
@@ -680,6 +690,135 @@ export class VFXSystem {
      */
     getFxLayer(): PIXI.Container {
         return this.fxLayer;
+    }
+
+    /**
+     * 텍스트 팝업 애니메이션 (플레이어 옆에서 숑~ 하고 나타남)
+     */
+    spawnTextPopup(
+        x: number,
+        y: number,
+        text: string,
+        color: number = 0xFFFFFF,
+        fontSize: number = 32
+    ): void {
+        if (!this.fxLayer) return;
+
+        // 텍스트 생성
+        const textObj = new PIXI.Text(text, {
+            fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
+            fontSize: fontSize,
+            fill: color,
+            align: 'center',
+            fontWeight: 'bold',
+            stroke: 0x000000,
+            strokeThickness: 4
+        });
+
+        textObj.anchor.set(0.5, 0.5);
+        textObj.x = x;
+        textObj.y = y;
+        textObj.alpha = 0;
+        textObj.scale.set(0.5);
+
+        this.fxLayer.addChild(textObj);
+        this.activeTextPopups.push(textObj);
+
+        // 애니메이션 (0.8초 동안)
+        const startTime = performance.now();
+        const duration = 800;
+
+        const animate = () => {
+            const elapsed = performance.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            if (progress < 1) {
+                // Ease out cubic
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+                // 위로 떠오르면서 오른쪽으로 이동
+                textObj.y = y - easeProgress * 70;
+                textObj.x = x + easeProgress * 50;
+
+                // 흔들림 효과 (진동)
+                const shake = Math.sin(progress * 15) * 3 * (1 - progress);
+                textObj.x += shake;
+
+                // 약간의 회전
+                textObj.rotation = Math.sin(progress * Math.PI) * 0.15;
+
+                // 페이드 인/아웃 및 스케일
+                if (progress < 0.15) {
+                    // 처음 15%: 빠른 페이드 인 + 팝업
+                    const fadeProgress = progress / 0.15;
+                    textObj.alpha = fadeProgress;
+                    // 탄성 효과
+                    const bounce = 1 + Math.sin(fadeProgress * Math.PI) * 0.3;
+                    textObj.scale.set(0.5 + fadeProgress * 0.5 * bounce);
+                } else if (progress > 0.75) {
+                    // 마지막 25%: 페이드 아웃
+                    textObj.alpha = (1 - progress) / 0.25;
+                    textObj.scale.set(1 + (progress - 0.75) * 0.5);
+                } else {
+                    textObj.alpha = 1;
+                    textObj.scale.set(1);
+                }
+
+                requestAnimationFrame(animate);
+            } else {
+                // 애니메이션 종료
+                this.fxLayer.removeChild(textObj);
+                textObj.destroy();
+                const index = this.activeTextPopups.indexOf(textObj);
+                if (index > -1) {
+                    this.activeTextPopups.splice(index, 1);
+                }
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * 콤보 텍스트 팝업 (특정 콤보 달성 시)
+     */
+    spawnComboTextPopup(x: number, y: number, combo: number): void {
+        // 10의 배수마다 "바밧~" 텍스트 표시
+        if (combo % 10 !== 0 || combo === 0) return;
+
+        // 콤보 수치에 따라 다양한 텍스트
+        let texts = ['바밧~', '바밧!', 'BABAT~', '바밧!!'];
+
+        if (combo >= 50) {
+            texts = ['바밧!!!', 'BABAT!!!', '바밧바밧~', '대박~!'];
+        } else if (combo >= 30) {
+            texts = ['바밧!', 'BABAT!', '바밧바밧', '쩐다~'];
+        } else if (combo >= 20) {
+            texts = ['바밧~!', 'BABAT~', '바밧!!'];
+        }
+
+        const randomText = texts[Math.floor(Math.random() * texts.length)];
+
+        // 콤보에 따른 색상 변화
+        let color = 0xFFFFFF;
+        let fontSize = 32;
+
+        if (combo >= 50) {
+            color = 0xFF1493; // 핫핑크 (50+)
+            fontSize = 52;
+        } else if (combo >= 30) {
+            color = 0xFFD700; // 골드 (30+)
+            fontSize = 44;
+        } else if (combo >= 20) {
+            color = 0xFFAAAA; // 라이트 레드 (20+)
+            fontSize = 38;
+        } else if (combo >= 10) {
+            color = 0xFFFFAA; // 옐로우 (10+)
+            fontSize = 34;
+        }
+
+        // 플레이어 오른쪽 위에 텍스트 표시
+        this.spawnTextPopup(x + 35, y - 25, randomText, color, fontSize);
     }
 }
 
