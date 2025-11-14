@@ -3,7 +3,7 @@ import { gameState, playerState, ropeState, gameActions, platforms } from '../st
 import { animationSystem } from '../systems/animationSystem';
 import { ropeSystem } from '../systems/ropeSystem';
 import { vfxSystem } from '../systems/vfxSystem';
-import { GAME_CONFIG, COLORS } from '../core/config';
+import { GAME_CONFIG, COLORS, BACKGROUND_THEMES } from '../core/config';
 import { UIManager } from './UIManager';
 import { AudioManager } from './AudioManager';
 import { submitGameCenterLeaderBoardScore, isMinVersionSupported } from '@apps-in-toss/web-framework';
@@ -65,6 +65,9 @@ export class GameScene {
         twinklePhase: number;
     }> = [];
     private clouds: Array<{ sprite: CloudSprite; speed: number }> = [];
+    private currentBgColor: number = 0x000000;
+    private targetBgColor: number = 0x000000;
+    private currentThemeIndex: number = 0;
     
     // 물리 및 카메라
     private readonly maxSpeedX: number = GAME_CONFIG.maxSpeedX;
@@ -998,6 +1001,9 @@ export class GameScene {
     private updateBackground(): void {
         const scrollX = this.scrollOffsetX * GAME_CONFIG.bgSpeed;
 
+        // 거리에 따른 배경 테마 변경
+        this.updateBackgroundTheme();
+
         for (let i = 0; i < this.bgTiles.length; i++) {
             const tile = this.bgTiles[i];
             const baseX = (i % 2) * GAME_CONFIG.bgTileWidth;
@@ -1043,6 +1049,63 @@ export class GameScene {
                 }
             }
         }
+    }
+
+    private updateBackgroundTheme(): void {
+        // 현재 거리에 맞는 테마 찾기
+        const distance = Math.floor(this.scrollOffsetX / 100); // 거리를 미터로 변환
+
+        let newThemeIndex = 0;
+        for (let i = BACKGROUND_THEMES.length - 1; i >= 0; i--) {
+            if (distance >= BACKGROUND_THEMES[i].distance) {
+                newThemeIndex = i;
+                break;
+            }
+        }
+
+        // 테마가 변경되었을 때
+        if (newThemeIndex !== this.currentThemeIndex) {
+            this.currentThemeIndex = newThemeIndex;
+            this.targetBgColor = BACKGROUND_THEMES[newThemeIndex].color;
+
+            logger.log(`🎨 배경 테마 변경: ${BACKGROUND_THEMES[newThemeIndex].name} (${distance}m)`);
+        }
+
+        // 부드러운 색상 전환 (lerp)
+        if (this.currentBgColor !== this.targetBgColor) {
+            this.currentBgColor = this.lerpColor(this.currentBgColor, this.targetBgColor, 0.02);
+
+            // 앱 배경색 업데이트
+            if (this.app && this.app.renderer) {
+                this.app.renderer.background.color = this.currentBgColor;
+            }
+
+            // 배경 타일 색상 업데이트
+            for (let i = 0; i < this.bgTiles.length; i++) {
+                this.bgTiles[i].tint = this.currentBgColor;
+            }
+        }
+    }
+
+    private lerpColor(colorA: number, colorB: number, t: number): number {
+        const ar = (colorA >> 16) & 0xff;
+        const ag = (colorA >> 8) & 0xff;
+        const ab = colorA & 0xff;
+
+        const br = (colorB >> 16) & 0xff;
+        const bg = (colorB >> 8) & 0xff;
+        const bb = colorB & 0xff;
+
+        const rr = Math.round(ar + (br - ar) * t);
+        const rg = Math.round(ag + (bg - ag) * t);
+        const rb = Math.round(ab + (bb - ab) * t);
+
+        // 색상이 거의 같아지면 타겟 색상으로 설정
+        if (Math.abs(rr - br) < 2 && Math.abs(rg - bg) < 2 && Math.abs(rb - bb) < 2) {
+            return colorB;
+        }
+
+        return (rr << 16) | (rg << 8) | rb;
     }
 
     private updateMovingPlatforms(): void {

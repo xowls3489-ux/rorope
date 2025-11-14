@@ -137,4 +137,13 @@ export const COLORS = {
     accent: 0x888888
 };
 
+// 거리에 따른 배경 테마
+export const BACKGROUND_THEMES = [
+    { distance: 0, color: 0x000000, name: 'midnight' },      // 0-2000m: 검정
+    { distance: 2000, color: 0x0a0a20, name: 'deep-blue' },  // 2000-4000m: 진한 남색
+    { distance: 4000, color: 0x1a0a20, name: 'purple' },     // 4000-6000m: 진한 보라
+    { distance: 6000, color: 0x200a0a, name: 'crimson' },    // 6000-8000m: 진한 빨강
+    { distance: 8000, color: 0x201010, name: 'dark-red' },   // 8000m+: 어두운 빨강
+];
+
 
