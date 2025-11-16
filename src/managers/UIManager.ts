@@ -16,10 +16,6 @@ export class UIManager {
     private scoreText!: PIXI.Text;
     private comboText!: PIXI.Text;
     private gameOverText!: PIXI.Text;
-    private invincibleIndicator!: PIXI.Container;
-    private invincibleBg!: PIXI.Graphics;
-    private invincibleText!: PIXI.Text;
-    private invincibleTimer!: PIXI.Graphics;
     private scrollOffsetX: number = 0;
     
     // 게임오버 UI 요소들
@@ -112,41 +108,6 @@ export class UIManager {
         this.comboText.anchor.set(0.5, 0.5);
         this.comboText.visible = false;
         this.uiLayer.addChild(this.comboText);
-
-        // 무적 모드 인디케이터
-        this.invincibleIndicator = new PIXI.Container();
-        this.invincibleIndicator.visible = false;
-
-        // 배경
-        this.invincibleBg = new PIXI.Graphics();
-        this.invincibleBg.beginFill(0xFFD700, 0.9);
-        this.invincibleBg.drawRoundedRect(0, 0, 200, 50, 12);
-        this.invincibleBg.endFill();
-        this.invincibleBg.lineStyle(2, 0xFFFFFF, 0.8);
-        this.invincibleBg.drawRoundedRect(0, 0, 200, 50, 12);
-        this.invincibleIndicator.addChild(this.invincibleBg);
-
-        // 텍스트
-        this.invincibleText = new PIXI.Text('⭐ INVINCIBLE', {
-            fontFamily: 'Pretendard, Inter, Roboto Mono, monospace',
-            fontSize: 18,
-            fill: 0x1a1a1a,
-            align: 'center',
-            fontWeight: 'bold'
-        });
-        this.invincibleText.x = 100;
-        this.invincibleText.y = 15;
-        this.invincibleText.anchor.set(0.5, 0);
-        this.invincibleIndicator.addChild(this.invincibleText);
-
-        // 타이머 바
-        this.invincibleTimer = new PIXI.Graphics();
-        this.invincibleIndicator.addChild(this.invincibleTimer);
-
-        // 화면 중앙 상단에 위치
-        this.invincibleIndicator.x = (GAME_CONFIG.width - 200) / 2;
-        this.invincibleIndicator.y = 120;
-        this.uiLayer.addChild(this.invincibleIndicator);
 
         // 게임오버 UI (레거시 호환용)
         this.gameOverText = new PIXI.Text('', {
@@ -325,52 +286,10 @@ export class UIManager {
     }
 
     /**
-     * 무적 모드 인디케이터 업데이트
+     * 무적 모드 인디케이터 업데이트 (제거됨 - 하위 호환성 유지)
      */
     public updateInvincibleIndicator(isActive: boolean, remainingTime: number = 0, totalDuration: number = 3000): void {
-        if (!isActive) {
-            this.invincibleIndicator.visible = false;
-            return;
-        }
-
-        this.invincibleIndicator.visible = true;
-
-        // 타이머 바 업데이트
-        const progress = remainingTime / totalDuration;
-        const barWidth = 180;
-        const barHeight = 6;
-        const barX = 10;
-        const barY = 38;
-
-        this.invincibleTimer.clear();
-
-        // 배경 바 (회색)
-        this.invincibleTimer.beginFill(0x333333, 0.6);
-        this.invincibleTimer.drawRoundedRect(barX, barY, barWidth, barHeight, 3);
-        this.invincibleTimer.endFill();
-
-        // 진행 바 (시간에 따라 색상 변화)
-        let barColor = 0xFFFFFF;
-        if (progress > 0.5) {
-            barColor = 0x00FF00; // 초록 (남은 시간 많음)
-        } else if (progress > 0.25) {
-            barColor = 0xFFFF00; // 노랑 (중간)
-        } else {
-            barColor = 0xFF0000; // 빨강 (곧 종료)
-        }
-
-        this.invincibleTimer.beginFill(barColor, 0.9);
-        this.invincibleTimer.drawRoundedRect(barX, barY, barWidth * progress, barHeight, 3);
-        this.invincibleTimer.endFill();
-
-        // 깜빡임 효과 (종료 임박 시)
-        if (progress < 0.25) {
-            const blinkSpeed = 5;
-            const shouldBlink = Math.floor(Date.now() / (1000 / blinkSpeed)) % 2 === 0;
-            this.invincibleBg.alpha = shouldBlink ? 1.0 : 0.7;
-        } else {
-            this.invincibleBg.alpha = 1.0;
-        }
+        // UI 제거됨 - 아무 것도 하지 않음
     }
 
     /**
@@ -381,7 +300,6 @@ export class UIManager {
         this.gameOverContainer.visible = false;
         this.pauseButton.visible = true; // 일시정지 버튼 표시
         this.pausePanel.visible = false; // 일시정지 패널 숨김
-        this.invincibleIndicator.visible = false; // 무적 인디케이터 숨김
         animationSystem.fadeInUI(this.scoreText);
         this.emitUIEvent('pause-close');
         this.emitUIEvent('gameover-close');

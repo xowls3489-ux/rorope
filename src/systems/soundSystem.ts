@@ -177,6 +177,17 @@ export class SoundSystem {
       rate: 1.0
     });
 
+    // 파워업 사운드 (별 먹을 때)
+    const powerupSound = new Howl({
+      src: ['/sounds/sfx/powerup.wav'],
+      volume: 0.6,
+      preload: true,
+      html5: false,
+      onloaderror: (_id, error) => {
+        console.warn('powerup.wav 로드 실패:', error);
+      }
+    });
+
       this.sounds.set('ropeShoot', ropeShootSound);
       this.sounds.set('hit', hitSound); // 플랫폼 히트
       this.sounds.set('comboUp', comboUpSound); // 콤보 증가
@@ -189,6 +200,7 @@ export class SoundSystem {
       this.sounds.set('background', backgroundMusic); // 게임 배경음
       this.sounds.set('titleBgm', titleMusic); // 타이틀 배경음
       this.sounds.set('jump', jumpSound);
+      this.sounds.set('powerup', powerupSound); // 파워업 별 수집
 
       this.soundsInitialized = true;
     } catch (error) {

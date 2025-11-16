@@ -82,7 +82,8 @@ export class GameScene {
     
     // 파워업 아이템
     private powerupStars: Array<{ graphic: PIXI.Graphics; collected: boolean }> = [];
-    
+    private lastStarSpawnDistance: number = 0; // 마지막으로 별을 스폰한 거리
+
     // 스크롤 및 프레임 카운터
     private scrollOffsetX: number = 0;
     private frameCounter: number = 0;
@@ -637,6 +638,9 @@ export class GameScene {
         if (!this.player) {
             this.initGameObjects();
         }
+
+        // 별 스폰 카운터 초기화
+        this.lastStarSpawnDistance = 0;
 
         this.generateInitialPlatforms();
 
@@ -1249,7 +1253,7 @@ export class GameScene {
 
                 container.visible = false;
                 this.activateInvincibleMode();
-                this.audioManager.playScore();
+                this.audioManager.playPowerup(); // 파워업 사운드 재생
                 logger.log('⭐ 파워업 획득!');
             }
 
@@ -1264,18 +1268,27 @@ export class GameScene {
     private managePlatforms(): void {
         const currentPlatforms = platforms.get();
 
-        // 최적화: filter 대신 단일 루프에서 카운트
-        if (this.scrollOffsetX >= GAME_CONFIG.starMinDistance &&
-            Math.random() < GAME_CONFIG.starSpawnChance) {
-            let uncollectedCount = 0;
-            for (let i = 0; i < this.powerupStars.length; i++) {
-                if (!this.powerupStars[i].collected && ++uncollectedCount >= 3) break;
+        // 500m 간격으로 별 스폰 체크
+        const currentDistance = Math.floor(this.scrollOffsetX / 100); // 미터 단위
+        const spawnInterval = GAME_CONFIG.starSpawnInterval / 100; // 500m -> 5m
+
+        if (currentDistance >= GAME_CONFIG.starMinDistance / 100 &&
+            currentDistance >= this.lastStarSpawnDistance + spawnInterval) {
+
+            // 30% 확률로 스폰
+            if (Math.random() < GAME_CONFIG.starSpawnChance) {
+                let uncollectedCount = 0;
+                for (let i = 0; i < this.powerupStars.length; i++) {
+                    if (!this.powerupStars[i].collected && ++uncollectedCount >= 3) break;
+                }
+                if (uncollectedCount < 3) {
+                    const starX = GAME_CONFIG.width + 400 + Math.random() * 200;
+                    const starY = 100 + Math.random() * (GAME_CONFIG.height - 300);
+                    this.spawnPowerupStar(starX, starY);
+                }
             }
-            if (uncollectedCount < 3) {
-                const starX = GAME_CONFIG.width + 400 + Math.random() * 200;
-                const starY = 100 + Math.random() * (GAME_CONFIG.height - 300);
-                this.spawnPowerupStar(starX, starY);
-            }
+            // 스폰 시도 후 마지막 거리 업데이트 (스폰 성공 여부와 관계없이)
+            this.lastStarSpawnDistance = currentDistance;
         }
 
         // 최적화: filter 대신 역방향 반복으로 제거

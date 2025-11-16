@@ -145,6 +145,10 @@ export class AudioManager {
         this.play('babat10');
     }
 
+    public playPowerup(): void {
+        this.play('powerup');
+    }
+
     public playBackground(): void {
         this.play('background');
     }
