@@ -37,7 +37,7 @@ export class SoundSystem {
         try {
           // 사운드 초기화 (첫 번째 사용자 상호작용에서)
           this.initSounds();
-          
+
           // Howler.js의 AudioContext 잠금 해제
           if (Howler.ctx && Howler.ctx.state === 'suspended') {
             await Howler.ctx.resume();
@@ -63,6 +63,22 @@ export class SoundSystem {
     document.addEventListener('click', unlockOnce, { once: true });
     document.addEventListener('touchstart', unlockOnce, { once: true });
     document.addEventListener('keydown', unlockOnce, { once: true });
+
+    // iOS 백그라운드 복귀 후 AudioContext 재개를 위한 추가 리스너
+    const resumeAudioOnTouch = async () => {
+      if (this.audioContextUnlocked && Howler.ctx && Howler.ctx.state === 'suspended') {
+        try {
+          await Howler.ctx.resume();
+          logger.log('AudioContext resumed after user gesture (iOS fix)');
+        } catch (error) {
+          console.warn('Failed to resume AudioContext on touch:', error);
+        }
+      }
+    };
+
+    // 터치/클릭 시마다 AudioContext 상태 확인 및 재개 시도
+    document.addEventListener('touchstart', resumeAudioOnTouch, { passive: true });
+    document.addEventListener('click', resumeAudioOnTouch);
   }
 
   private initSounds(): void {
@@ -385,33 +401,75 @@ export class SoundSystem {
     });
   }
 
-  resumeAfterFocusGain(): void {
+  async resumeAfterFocusGain(): Promise<void> {
     if (this.isMuted) {
       this.focusPausedSounds.clear();
       return;
     }
 
     // AudioContext 재개 (iOS 등에서 필요)
-    if (Howler.ctx && Howler.ctx.state === 'suspended') {
-      Howler.ctx.resume().catch((error) => {
-        console.warn('Failed to resume AudioContext:', error);
-      });
+    try {
+      if (Howler.ctx) {
+        logger.log(`AudioContext state before resume: ${Howler.ctx.state}`);
+
+        // iOS에서는 AudioContext가 'interrupted' 또는 'suspended' 상태일 수 있음
+        if (Howler.ctx.state === 'suspended' || Howler.ctx.state === 'interrupted') {
+          await Howler.ctx.resume();
+          logger.log(`AudioContext resumed, new state: ${Howler.ctx.state}`);
+        }
+
+        // AudioContext가 제대로 재개되지 않았다면 강제로 재초기화 시도
+        if (Howler.ctx.state !== 'running') {
+          logger.log('AudioContext not running, attempting to reinitialize...');
+
+          // 모든 사운드를 언로드하고 다시 로드
+          this.sounds.forEach((sound) => {
+            try {
+              sound.unload();
+            } catch (e) {
+              console.warn('Failed to unload sound:', e);
+            }
+          });
+
+          // 사운드 재초기화
+          this.soundsInitialized = false;
+          this.sounds.clear();
+          this.initSounds();
+
+          // AudioContext 재시작 시도
+          if (Howler.ctx && Howler.ctx.state === 'suspended') {
+            await Howler.ctx.resume();
+          }
+
+          logger.log('AudioContext reinitialized');
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to resume AudioContext:', error);
     }
 
-    this.focusPausedSounds.forEach(name => {
-      const sound = this.sounds.get(name);
-      if (!sound) {
-        return;
-      }
-      try {
-        if (!sound.playing()) {
-          sound.play(); // Howler.js의 play()는 pause()된 위치부터 재생됨
+    // 일정 시간 대기 후 사운드 재개 (iOS 안정화)
+    setTimeout(() => {
+      this.focusPausedSounds.forEach(name => {
+        const sound = this.sounds.get(name);
+        if (!sound) {
+          return;
         }
-      } catch (error) {
-        console.warn('Failed to resume sound after focus gain:', name, error);
-      }
-    });
-    this.focusPausedSounds.clear();
+        try {
+          logger.log(`Attempting to resume sound: ${name}, playing: ${sound.playing()}`);
+
+          // 사운드가 재생 중이 아니면 재생
+          if (!sound.playing()) {
+            // iOS에서는 play() 대신 새로 재생하는 것이 더 안정적
+            sound.play();
+            logger.log(`Resumed sound: ${name}`);
+          }
+        } catch (error) {
+          logger.error(`Failed to resume sound after focus gain: ${name}`, error);
+        }
+      });
+      this.focusPausedSounds.clear();
+    }, 100); // 100ms 대기
   }
 }
 
