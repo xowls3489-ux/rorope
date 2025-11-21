@@ -14,8 +14,6 @@ export class SoundSystem {
   private soundSeekPositions: Map<string, number> = new Map(); // 일시정지 시 재생 위치 저장
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
-  // iOS 디버깅을 위한 화면 표시
-  private debugElement: HTMLDivElement | null = null;
   // 사운드별 최소 재생 간격(ms) - config에서 가져옴
   private get minIntervalMs(): Record<string, number> {
     return GAME_CONFIG.soundIntervals;
@@ -25,9 +23,6 @@ export class SoundSystem {
     // iOS 백그라운드 오디오 문제 해결을 위해 autoSuspend 비활성화
     Howler.autoSuspend = false;
 
-    // iOS 디버깅을 위한 화면 표시 요소 생성
-    this.createDebugElement();
-
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
@@ -36,43 +31,6 @@ export class SoundSystem {
     const savedSoundMuted = userManager.loadData('soundMuted');
     if (savedSoundMuted !== '') {
       this.isMuted = savedSoundMuted === 'true';
-    }
-  }
-
-  private createDebugElement(): void {
-    this.debugElement = document.createElement('div');
-    this.debugElement.style.cssText = `
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #0f0;
-      padding: 8px;
-      font-family: monospace;
-      font-size: 11px;
-      z-index: 10000;
-      border-radius: 4px;
-      max-width: 90vw;
-      word-wrap: break-word;
-      pointer-events: none;
-    `;
-    document.body.appendChild(this.debugElement);
-    this.updateDebug('Audio Debug Ready');
-  }
-
-  private updateDebug(message: string): void {
-    if (this.debugElement) {
-      const timestamp = new Date().toLocaleTimeString();
-      const ctxState = Howler.ctx ? (Howler.ctx.state as string) : 'N/A';
-      const pausedSounds = Array.from(this.focusPausedSounds).join(', ') || 'none';
-
-      this.debugElement.innerHTML = `
-        <div>[${timestamp}]</div>
-        <div style="color: #ff0;">${message}</div>
-        <div>Ctx: ${ctxState}</div>
-        <div>Paused: ${pausedSounds}</div>
-        <div>Count: ${this.focusPausedSounds.size}</div>
-      `;
     }
   }
 
@@ -115,28 +73,22 @@ export class SoundSystem {
       // iOS는 동기적 콜스택 내에서 AudioContext.resume()을 호출해야 함
       // async/await 사용 시 콜스택이 끊어질 수 있으므로 동기적으로 처리
 
-      this.updateDebug(`Touch detected!`);
-
       if (!this.audioContextUnlocked) {
-        this.updateDebug(`Not unlocked yet`);
         return;
       }
 
       if (!Howler.ctx) {
-        this.updateDebug(`No Howler.ctx`);
         return;
       }
 
       const ctxState = Howler.ctx.state as string;
       logger.log(`[Touch Event] AudioContext state: ${ctxState}, paused sounds: ${this.focusPausedSounds.size}`);
-      this.updateDebug(`Touch: ${ctxState}`);
 
       // suspended 또는 interrupted 상태일 때 재개 시도
       if (ctxState === 'suspended' || ctxState === 'interrupted') {
         // Promise를 반환하지만 동기적으로 호출 시작
         Howler.ctx.resume().then(() => {
           logger.log(`[Touch Event] AudioContext resumed, new state: ${Howler.ctx.state}`);
-          this.updateDebug(`Resumed: ${Howler.ctx.state}`);
 
           // AudioContext 재개 성공 후 일시정지된 사운드도 재생 시도
           if (this.focusPausedSounds.size > 0 && !this.isMuted) {
@@ -149,10 +101,8 @@ export class SoundSystem {
                 try {
                   sound.play();
                   logger.log(`[Touch Event] Successfully resumed sound: ${name}`);
-                  this.updateDebug(`Playing: ${name}`);
                 } catch (error) {
                   console.warn(`[Touch Event] Failed to resume sound ${name}:`, error);
-                  this.updateDebug(`FAILED: ${name}`);
                 }
               }
             });
@@ -162,12 +112,10 @@ export class SoundSystem {
           }
         }).catch((error) => {
           console.warn('[Touch Event] Failed to resume AudioContext:', error);
-          this.updateDebug(`Resume FAILED`);
         });
       } else if (ctxState === 'running' && this.focusPausedSounds.size > 0 && !this.isMuted) {
         // AudioContext는 running인데 사운드가 멈춰있는 경우
         logger.log(`[Touch Event] AudioContext already running, resuming ${this.focusPausedSounds.size} sounds`);
-        this.updateDebug(`Running, play sounds`);
 
         const soundsToResume = Array.from(this.focusPausedSounds);
         soundsToResume.forEach(name => {
@@ -176,10 +124,8 @@ export class SoundSystem {
             try {
               sound.play();
               logger.log(`[Touch Event] Successfully resumed sound: ${name}`);
-              this.updateDebug(`Playing: ${name}`);
             } catch (error) {
               console.warn(`[Touch Event] Failed to resume sound ${name}:`, error);
-              this.updateDebug(`FAILED: ${name}`);
             }
           }
         });
@@ -512,7 +458,6 @@ export class SoundSystem {
             logger.log(`Stopping sound for background: ${name}`);
             sound.stop();
             this.focusPausedSounds.add(name);
-            this.updateDebug(`Stopped: ${name}`);
           } else {
             // 자동 재개하지 않는 사운드는 그냥 pause
             sound.pause();
@@ -524,15 +469,11 @@ export class SoundSystem {
     });
 
     logger.log(`Paused sounds for background: ${Array.from(this.focusPausedSounds).join(', ')}`);
-    this.updateDebug(`Background: Stopped ${this.focusPausedSounds.size} sounds`);
   }
 
   async resumeAfterFocusGain(): Promise<void> {
-    this.updateDebug('Foreground: resumeAfterFocusGain called');
-
     if (this.isMuted) {
       this.focusPausedSounds.clear();
-      this.updateDebug('Muted - skipping resume');
       return;
     }
 
