@@ -11,6 +11,7 @@ export class SoundSystem {
   private audioContextUnlocked: boolean = false;
   private soundsInitialized: boolean = false; // 사운드 초기화 성공 여부
   private focusPausedSounds: Set<string> = new Set();
+  private soundSeekPositions: Map<string, number> = new Map(); // 일시정지 시 재생 위치 저장
   // 중복 재생/스팸 방지를 위한 최근 재생 시각
   private lastPlayedAt: Map<string, number> = new Map();
   // 사운드별 최소 재생 간격(ms) - config에서 가져옴
@@ -19,6 +20,9 @@ export class SoundSystem {
   }
 
   constructor() {
+    // iOS 백그라운드 오디오 문제 해결을 위해 autoSuspend 비활성화
+    Howler.autoSuspend = false;
+
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
@@ -439,18 +443,28 @@ export class SoundSystem {
 
   pauseForFocusLoss(): void {
     this.focusPausedSounds.clear();
+    this.soundSeekPositions.clear();
+
     this.sounds.forEach((sound, name) => {
       if (sound.playing()) {
         try {
-          sound.pause();
           if (this.shouldAutoResume(name)) {
+            // iOS에서 pause()가 제대로 작동하지 않으므로 stop() 사용
+            // loop 사운드는 재생 위치를 저장할 필요 없음 (어차피 처음부터 재생)
+            logger.log(`Stopping sound for background: ${name}`);
+            sound.stop();
             this.focusPausedSounds.add(name);
+          } else {
+            // 자동 재개하지 않는 사운드는 그냥 pause
+            sound.pause();
           }
         } catch (error) {
-          console.warn('Failed to pause sound on focus loss:', name, error);
+          console.warn('Failed to stop/pause sound on focus loss:', name, error);
         }
       }
     });
+
+    logger.log(`Paused sounds for background: ${Array.from(this.focusPausedSounds).join(', ')}`);
   }
 
   async resumeAfterFocusGain(): Promise<void> {
