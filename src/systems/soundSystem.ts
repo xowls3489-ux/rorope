@@ -65,44 +65,71 @@ export class SoundSystem {
     document.addEventListener('keydown', unlockOnce, { once: true });
 
     // iOS 백그라운드 복귀 후 AudioContext 및 사운드 재개를 위한 추가 리스너
-    const resumeAudioOnTouch = async () => {
-      if (this.audioContextUnlocked && Howler.ctx) {
-        const ctxState = Howler.ctx.state as string; // iOS의 'interrupted' 상태 처리
+    const resumeAudioOnTouch = () => {
+      // iOS는 동기적 콜스택 내에서 AudioContext.resume()을 호출해야 함
+      // async/await 사용 시 콜스택이 끊어질 수 있으므로 동기적으로 처리
 
-        // suspended 또는 interrupted 상태일 때 재개 시도
-        if (ctxState === 'suspended' || ctxState === 'interrupted') {
-          try {
-            await Howler.ctx.resume();
-            logger.log(`AudioContext resumed after user gesture (iOS fix), state: ${Howler.ctx.state}`);
+      if (!this.audioContextUnlocked || !Howler.ctx) {
+        return;
+      }
 
-            // AudioContext 재개 성공 후 일시정지된 사운드도 재생 시도
-            if (this.focusPausedSounds.size > 0 && !this.isMuted) {
-              logger.log(`Resuming ${this.focusPausedSounds.size} paused sounds after user gesture`);
+      const ctxState = Howler.ctx.state as string;
+      logger.log(`[Touch Event] AudioContext state: ${ctxState}, paused sounds: ${this.focusPausedSounds.size}`);
 
-              this.focusPausedSounds.forEach(name => {
-                const sound = this.sounds.get(name);
-                if (sound && !sound.playing()) {
-                  try {
-                    sound.play();
-                    logger.log(`Successfully resumed sound: ${name}`);
-                  } catch (error) {
-                    console.warn(`Failed to resume sound ${name}:`, error);
-                  }
+      // suspended 또는 interrupted 상태일 때 재개 시도
+      if (ctxState === 'suspended' || ctxState === 'interrupted') {
+        // Promise를 반환하지만 동기적으로 호출 시작
+        Howler.ctx.resume().then(() => {
+          logger.log(`[Touch Event] AudioContext resumed, new state: ${Howler.ctx.state}`);
+
+          // AudioContext 재개 성공 후 일시정지된 사운드도 재생 시도
+          if (this.focusPausedSounds.size > 0 && !this.isMuted) {
+            logger.log(`[Touch Event] Resuming ${this.focusPausedSounds.size} paused sounds`);
+
+            const soundsToResume = Array.from(this.focusPausedSounds);
+            soundsToResume.forEach(name => {
+              const sound = this.sounds.get(name);
+              if (sound && !sound.playing()) {
+                try {
+                  sound.play();
+                  logger.log(`[Touch Event] Successfully resumed sound: ${name}`);
+                } catch (error) {
+                  console.warn(`[Touch Event] Failed to resume sound ${name}:`, error);
                 }
-              });
+              }
+            });
 
-              // 성공적으로 재생했으므로 clear
-              this.focusPausedSounds.clear();
-            }
-          } catch (error) {
-            console.warn('Failed to resume AudioContext on touch:', error);
+            // 성공적으로 재생했으므로 clear
+            this.focusPausedSounds.clear();
           }
-        }
+        }).catch((error) => {
+          console.warn('[Touch Event] Failed to resume AudioContext:', error);
+        });
+      } else if (ctxState === 'running' && this.focusPausedSounds.size > 0 && !this.isMuted) {
+        // AudioContext는 running인데 사운드가 멈춰있는 경우
+        logger.log(`[Touch Event] AudioContext already running, resuming ${this.focusPausedSounds.size} sounds`);
+
+        const soundsToResume = Array.from(this.focusPausedSounds);
+        soundsToResume.forEach(name => {
+          const sound = this.sounds.get(name);
+          if (sound && !sound.playing()) {
+            try {
+              sound.play();
+              logger.log(`[Touch Event] Successfully resumed sound: ${name}`);
+            } catch (error) {
+              console.warn(`[Touch Event] Failed to resume sound ${name}:`, error);
+            }
+          }
+        });
+
+        this.focusPausedSounds.clear();
       }
     };
 
     // 터치/클릭 시마다 AudioContext 상태 확인 및 재개 시도
-    document.addEventListener('touchstart', resumeAudioOnTouch, { passive: true });
+    // passive를 제거하여 동기적 콜스택 유지
+    document.addEventListener('touchstart', resumeAudioOnTouch);
+    document.addEventListener('touchend', resumeAudioOnTouch);
     document.addEventListener('click', resumeAudioOnTouch);
   }
 
