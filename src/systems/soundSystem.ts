@@ -115,7 +115,15 @@ export class SoundSystem {
       // iOS는 동기적 콜스택 내에서 AudioContext.resume()을 호출해야 함
       // async/await 사용 시 콜스택이 끊어질 수 있으므로 동기적으로 처리
 
-      if (!this.audioContextUnlocked || !Howler.ctx) {
+      this.updateDebug(`Touch detected!`);
+
+      if (!this.audioContextUnlocked) {
+        this.updateDebug(`Not unlocked yet`);
+        return;
+      }
+
+      if (!Howler.ctx) {
+        this.updateDebug(`No Howler.ctx`);
         return;
       }
 
