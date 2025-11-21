@@ -107,12 +107,16 @@ const registerAudioFocusListener = (handler: (event: AudioFocusEvent) => void) =
 };
 
 registerAudioFocusListener(({ hasAudioFocus }) => {
+  logger.log(`[AudioFocus] hasAudioFocus: ${hasAudioFocus}`);
+
   if (hasAudioFocus) {
+    logger.log('[AudioFocus] Calling resumeAfterFocusGain');
     // iOS 백그라운드 복귀 시 AudioContext 재개
     soundSystem.resumeAfterFocusGain().catch((error) => {
       console.error('Failed to resume audio after focus gain:', error);
     });
   } else {
+    logger.log('[AudioFocus] Calling pauseForFocusLoss');
     soundSystem.pauseForFocusLoss();
   }
 });

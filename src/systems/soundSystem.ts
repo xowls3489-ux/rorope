@@ -528,8 +528,11 @@ export class SoundSystem {
   }
 
   async resumeAfterFocusGain(): Promise<void> {
+    this.updateDebug('Foreground: resumeAfterFocusGain called');
+
     if (this.isMuted) {
       this.focusPausedSounds.clear();
+      this.updateDebug('Muted - skipping resume');
       return;
     }
 
