@@ -74,15 +74,19 @@ export class SoundSystem {
       // 사용자 제스처 이벤트 핸들러에서 동기적으로 resume() 호출 시작
 
       if (!this.audioContextUnlocked || !Howler.ctx || this.isMuted) {
+        logger.log(`[Touch] Skipped - unlocked:${this.audioContextUnlocked}, ctx:${!!Howler.ctx}, muted:${this.isMuted}`);
         return;
       }
 
       const ctxState = Howler.ctx.state as string;
+      logger.log(`[Touch] Ctx state: ${ctxState}, paused sounds: ${this.focusPausedSounds.size}`);
 
       // AudioContext가 running이 아니면 먼저 재개
       if (ctxState !== 'running') {
+        logger.log(`[Touch] Attempting to resume AudioContext...`);
         // Promise를 반환하지만 동기적으로 호출 시작 (iOS 제스처 컨텍스트 유지)
         Howler.ctx.resume().then(() => {
+          logger.log(`[Touch] AudioContext resumed to: ${Howler.ctx.state}`);
           // AudioContext 재개 성공 후 일시정지된 사운드 재생
           if (this.focusPausedSounds.size > 0) {
             const successfullyResumed: string[] = [];
@@ -92,19 +96,21 @@ export class SoundSystem {
                 try {
                   sound.play();
                   successfullyResumed.push(name);
+                  logger.log(`[Touch] Resumed sound: ${name}`);
                 } catch (error) {
-                  // 재생 실패 시 focusPausedSounds에 유지
+                  logger.log(`[Touch] Failed to resume: ${name}`, error);
                 }
               }
             });
             // 성공한 사운드만 제거
             successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
           }
-        }).catch(() => {
-          // resume 실패는 무시
+        }).catch((error) => {
+          logger.log(`[Touch] Resume failed:`, error);
         });
       } else if (this.focusPausedSounds.size > 0) {
         // AudioContext는 이미 running - 사운드만 재생
+        logger.log(`[Touch] Ctx already running, resuming sounds`);
         const successfullyResumed: string[] = [];
         this.focusPausedSounds.forEach(name => {
           const sound = this.sounds.get(name);
@@ -112,13 +118,16 @@ export class SoundSystem {
             try {
               sound.play();
               successfullyResumed.push(name);
+              logger.log(`[Touch] Resumed sound: ${name}`);
             } catch (error) {
-              // 재생 실패 시 focusPausedSounds에 유지
+              logger.log(`[Touch] Failed to resume: ${name}`, error);
             }
           }
         });
         // 성공한 사운드만 제거
         successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
+      } else {
+        logger.log(`[Touch] Ctx running but no paused sounds`);
       }
     };
 
