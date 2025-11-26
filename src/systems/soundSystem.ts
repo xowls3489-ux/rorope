@@ -77,6 +77,12 @@ export class SoundSystem {
         return;
       }
 
+      // iOS Safari는 실제 DOM 조작이 있어야 사용자 제스처로 인식
+      // 보이지 않는 임시 요소 생성/제거로 제스처 컨텍스트 유지
+      const dummy = document.createElement('span');
+      document.body.appendChild(dummy);
+      document.body.removeChild(dummy);
+
       const ctxState = Howler.ctx.state as string;
 
       // AudioContext가 running이 아니면 먼저 재개
