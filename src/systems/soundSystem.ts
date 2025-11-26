@@ -71,43 +71,57 @@ export class SoundSystem {
     // iOS 백그라운드 복귀 후 AudioContext 및 사운드 재개를 위한 추가 리스너
     const resumeAudioOnTouch = () => {
       // iOS는 동기적 콜스택 내에서 AudioContext.resume()을 호출해야 함
-      // 조건 체크 전에 먼저 resume()을 동기적으로 호출하는 것이 중요
+      // 사용자 제스처 이벤트 핸들러에서 동기적으로 resume() 호출 시작
 
       if (!this.audioContextUnlocked || !Howler.ctx) {
         return;
       }
 
+      // 일시정지된 사운드가 없으면 처리 안 함
+      if (this.focusPausedSounds.size === 0 || this.isMuted) {
+        return;
+      }
+
       const ctxState = Howler.ctx.state as string;
 
-      // 핵심: iOS에서는 체크 없이 바로 resume() 호출을 시작해야 함
-      // suspended 또는 interrupted 상태일 때만이 아니라, 항상 시도
+      // AudioContext가 running이 아니면 먼저 재개
       if (ctxState !== 'running') {
         // Promise를 반환하지만 동기적으로 호출 시작 (iOS 제스처 컨텍스트 유지)
         Howler.ctx.resume().then(() => {
-          // AudioContext 재개 성공 후 일시정지된 사운드도 재생 시도
-          if (this.focusPausedSounds.size > 0 && !this.isMuted) {
-            const soundsToResume = Array.from(this.focusPausedSounds);
-            soundsToResume.forEach(name => {
-              const sound = this.sounds.get(name);
-              if (sound && !sound.playing()) {
+          // AudioContext 재개 성공 후 일시정지된 사운드 재생
+          const successfullyResumed: string[] = [];
+          this.focusPausedSounds.forEach(name => {
+            const sound = this.sounds.get(name);
+            if (sound && !sound.playing()) {
+              try {
                 sound.play();
+                successfullyResumed.push(name);
+              } catch (error) {
+                // 재생 실패 시 focusPausedSounds에 유지
               }
-            });
-            this.focusPausedSounds.clear();
-          }
+            }
+          });
+          // 성공한 사운드만 제거
+          successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
         }).catch(() => {
-          // iOS에서 resume 실패는 정상 (이미 running 상태일 수 있음)
+          // resume 실패는 무시
         });
-      } else if (this.focusPausedSounds.size > 0 && !this.isMuted) {
-        // AudioContext는 running인데 사운드가 멈춰있는 경우
-        const soundsToResume = Array.from(this.focusPausedSounds);
-        soundsToResume.forEach(name => {
+      } else {
+        // AudioContext는 이미 running - 사운드만 재생
+        const successfullyResumed: string[] = [];
+        this.focusPausedSounds.forEach(name => {
           const sound = this.sounds.get(name);
           if (sound && !sound.playing()) {
-            sound.play();
+            try {
+              sound.play();
+              successfullyResumed.push(name);
+            } catch (error) {
+              // 재생 실패 시 focusPausedSounds에 유지
+            }
           }
         });
-        this.focusPausedSounds.clear();
+        // 성공한 사운드만 제거
+        successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
       }
     };
 
@@ -454,53 +468,27 @@ export class SoundSystem {
       return;
     }
 
-    // AudioContext 재개 시도 (iOS 등에서 필요)
-    // 주의: visibilitychange 이벤트는 사용자 제스처가 아니므로 실패할 수 있음
+    // iOS의 경우 visibilitychange 이벤트는 사용자 제스처가 아니므로
+    // AudioContext.resume()과 sound.play()가 실패할 수 있음
+    // focusPausedSounds를 유지하여 resumeAudioOnTouch에서 재시도하도록 함
+
+    // AudioContext 재개 시도 (Android에서는 작동, iOS에서는 실패 가능)
     try {
       if (Howler.ctx) {
-        const ctxState = Howler.ctx.state as string; // iOS의 'interrupted' 상태 처리
-        logger.log(`AudioContext state before resume: ${ctxState}`);
+        const ctxState = Howler.ctx.state as string;
 
-        // iOS에서는 AudioContext가 'interrupted' 또는 'suspended' 상태일 수 있음
+        // suspended 또는 interrupted 상태면 재개 시도
         if (ctxState === 'suspended' || ctxState === 'interrupted') {
           await Howler.ctx.resume();
-          logger.log(`AudioContext resumed, new state: ${Howler.ctx.state}`);
-        }
-
-        // AudioContext가 제대로 재개되지 않았다면 강제로 재초기화 시도
-        if (Howler.ctx.state !== 'running') {
-          logger.log('AudioContext not running, attempting to reinitialize...');
-
-          // 모든 사운드를 언로드하고 다시 로드
-          this.sounds.forEach((sound) => {
-            try {
-              sound.unload();
-            } catch (e) {
-              console.warn('Failed to unload sound:', e);
-            }
-          });
-
-          // 사운드 재초기화
-          this.soundsInitialized = false;
-          this.sounds.clear();
-          this.initSounds();
-
-          // AudioContext 재시작 시도
-          if (Howler.ctx && Howler.ctx.state === 'suspended') {
-            await Howler.ctx.resume();
-          }
-
-          logger.log('AudioContext reinitialized');
         }
       }
     } catch (error) {
-      logger.error('Failed to resume AudioContext:', error);
+      // iOS에서는 실패 예상 - resumeAudioOnTouch에서 처리
     }
 
-    // AudioContext가 running 상태일 때만 사운드 재생 시도
-    if (Howler.ctx && Howler.ctx.state === 'running') {
-      logger.log('AudioContext is running, attempting to resume sounds');
-
+    // AudioContext가 running 상태라면 사운드 재생 시도 (Android용)
+    // iOS에서는 실패하더라도 focusPausedSounds를 유지하여 터치 시 재시도
+    if (Howler.ctx && Howler.ctx.state === 'running' && this.focusPausedSounds.size > 0) {
       const successfullyResumed: string[] = [];
 
       this.focusPausedSounds.forEach(name => {
@@ -509,32 +497,22 @@ export class SoundSystem {
           return;
         }
         try {
-          logger.log(`Attempting to resume sound: ${name}, playing: ${sound.playing()}`);
-
-          // 사운드가 재생 중이 아니면 재생
           if (!sound.playing()) {
             sound.play();
-            logger.log(`Resumed sound: ${name}`);
             successfullyResumed.push(name);
           }
         } catch (error) {
-          logger.error(`Failed to resume sound after focus gain: ${name}`, error);
-          // 실패한 사운드는 focusPausedSounds에 유지되어 다음 터치 시 재시도
+          // iOS에서 실패 시 focusPausedSounds에 유지하여 터치 시 재시도
         }
       });
 
-      // 성공적으로 재생된 사운드만 제거
+      // 성공적으로 재생된 사운드만 제거 (Android)
       successfullyResumed.forEach(name => {
         this.focusPausedSounds.delete(name);
       });
-
-      if (this.focusPausedSounds.size > 0) {
-        logger.log(`${this.focusPausedSounds.size} sounds still waiting for user gesture to resume`);
-      }
-    } else {
-      logger.log('AudioContext not running, sounds will resume on next user gesture');
-      // focusPausedSounds를 유지하여 resumeAudioOnTouch에서 재시도
     }
+
+    // focusPausedSounds에 남아있는 사운드는 resumeAudioOnTouch에서 재시도
   }
 }
 
