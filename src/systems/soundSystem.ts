@@ -73,12 +73,7 @@ export class SoundSystem {
       // iOS는 동기적 콜스택 내에서 AudioContext.resume()을 호출해야 함
       // 사용자 제스처 이벤트 핸들러에서 동기적으로 resume() 호출 시작
 
-      if (!this.audioContextUnlocked || !Howler.ctx) {
-        return;
-      }
-
-      // 일시정지된 사운드가 없으면 처리 안 함
-      if (this.focusPausedSounds.size === 0 || this.isMuted) {
+      if (!this.audioContextUnlocked || !Howler.ctx || this.isMuted) {
         return;
       }
 
@@ -89,24 +84,26 @@ export class SoundSystem {
         // Promise를 반환하지만 동기적으로 호출 시작 (iOS 제스처 컨텍스트 유지)
         Howler.ctx.resume().then(() => {
           // AudioContext 재개 성공 후 일시정지된 사운드 재생
-          const successfullyResumed: string[] = [];
-          this.focusPausedSounds.forEach(name => {
-            const sound = this.sounds.get(name);
-            if (sound && !sound.playing()) {
-              try {
-                sound.play();
-                successfullyResumed.push(name);
-              } catch (error) {
-                // 재생 실패 시 focusPausedSounds에 유지
+          if (this.focusPausedSounds.size > 0) {
+            const successfullyResumed: string[] = [];
+            this.focusPausedSounds.forEach(name => {
+              const sound = this.sounds.get(name);
+              if (sound && !sound.playing()) {
+                try {
+                  sound.play();
+                  successfullyResumed.push(name);
+                } catch (error) {
+                  // 재생 실패 시 focusPausedSounds에 유지
+                }
               }
-            }
-          });
-          // 성공한 사운드만 제거
-          successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
+            });
+            // 성공한 사운드만 제거
+            successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
+          }
         }).catch(() => {
           // resume 실패는 무시
         });
-      } else {
+      } else if (this.focusPausedSounds.size > 0) {
         // AudioContext는 이미 running - 사운드만 재생
         const successfullyResumed: string[] = [];
         this.focusPausedSounds.forEach(name => {
