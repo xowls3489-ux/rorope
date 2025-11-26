@@ -18,9 +18,6 @@ export class SoundSystem {
   private get minIntervalMs(): Record<string, number> {
     return GAME_CONFIG.soundIntervals;
   }
-  // 디버그 UI
-  private debugElement: HTMLDivElement | null = null;
-  private debugLogs: string[] = [];
 
   constructor() {
     // iOS 백그라운드 오디오 문제 해결을 위해 autoSuspend 비활성화
@@ -35,58 +32,6 @@ export class SoundSystem {
     if (savedSoundMuted !== '') {
       this.isMuted = savedSoundMuted === 'true';
     }
-
-    // 디버그 UI 생성
-    this.createDebugUI();
-  }
-
-  private createDebugUI(): void {
-    this.debugElement = document.createElement('div');
-    this.debugElement.style.position = 'fixed';
-    this.debugElement.style.top = '10px';
-    this.debugElement.style.left = '10px';
-    this.debugElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    this.debugElement.style.color = '#00ff00';
-    this.debugElement.style.padding = '10px';
-    this.debugElement.style.fontFamily = 'monospace';
-    this.debugElement.style.fontSize = '12px';
-    this.debugElement.style.zIndex = '99999';
-    this.debugElement.style.maxWidth = '90vw';
-    this.debugElement.style.maxHeight = '40vh';
-    this.debugElement.style.overflow = 'auto';
-    this.debugElement.style.whiteSpace = 'pre-wrap';
-    this.debugElement.style.wordBreak = 'break-word';
-    document.body.appendChild(this.debugElement);
-    this.updateDebugUI();
-  }
-
-  private addDebugLog(message: string): void {
-    const timestamp = new Date().toLocaleTimeString();
-    this.debugLogs.push(`[${timestamp}] ${message}`);
-    // 최대 20개 로그만 유지
-    if (this.debugLogs.length > 20) {
-      this.debugLogs.shift();
-    }
-    this.updateDebugUI();
-  }
-
-  private updateDebugUI(): void {
-    if (!this.debugElement) return;
-
-    const ctxState = Howler.ctx ? (Howler.ctx.state as string) : 'none';
-    const pausedSounds = Array.from(this.focusPausedSounds).join(', ') || 'none';
-
-    this.debugElement.textContent = `
-=== iOS Audio Debug ===
-Ctx State: ${ctxState}
-Unlocked: ${this.audioContextUnlocked}
-Muted: ${this.isMuted}
-Paused Sounds: ${pausedSounds}
-Count: ${this.focusPausedSounds.size}
-
---- Recent Logs ---
-${this.debugLogs.join('\n')}
-`.trim();
   }
 
   private setupAudioContextUnlock(): void {
@@ -129,19 +74,15 @@ ${this.debugLogs.join('\n')}
       // 사용자 제스처 이벤트 핸들러에서 동기적으로 resume() 호출 시작
 
       if (!this.audioContextUnlocked || !Howler.ctx || this.isMuted) {
-        this.addDebugLog(`Skipped - unlocked:${this.audioContextUnlocked}, ctx:${!!Howler.ctx}, muted:${this.isMuted}`);
         return;
       }
 
       const ctxState = Howler.ctx.state as string;
-      this.addDebugLog(`Touch - Ctx: ${ctxState}, paused: ${this.focusPausedSounds.size}`);
 
       // AudioContext가 running이 아니면 먼저 재개
       if (ctxState !== 'running') {
-        this.addDebugLog(`Attempting resume...`);
         // Promise를 반환하지만 동기적으로 호출 시작 (iOS 제스처 컨텍스트 유지)
         Howler.ctx.resume().then(() => {
-          this.addDebugLog(`Resumed to: ${Howler.ctx.state}`);
           // AudioContext 재개 성공 후 일시정지된 사운드 재생
           if (this.focusPausedSounds.size > 0) {
             const successfullyResumed: string[] = [];
@@ -151,21 +92,19 @@ ${this.debugLogs.join('\n')}
                 try {
                   sound.play();
                   successfullyResumed.push(name);
-                  this.addDebugLog(`✓ Resumed: ${name}`);
                 } catch (error) {
-                  this.addDebugLog(`✗ Failed: ${name}`);
+                  // 재생 실패 시 focusPausedSounds에 유지
                 }
               }
             });
             // 성공한 사운드만 제거
             successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
           }
-        }).catch((error) => {
-          this.addDebugLog(`Resume failed: ${error}`);
+        }).catch(() => {
+          // resume 실패는 무시
         });
       } else if (this.focusPausedSounds.size > 0) {
         // AudioContext는 이미 running - 사운드만 재생
-        this.addDebugLog(`Ctx running, resuming sounds`);
         const successfullyResumed: string[] = [];
         this.focusPausedSounds.forEach(name => {
           const sound = this.sounds.get(name);
@@ -173,16 +112,13 @@ ${this.debugLogs.join('\n')}
             try {
               sound.play();
               successfullyResumed.push(name);
-              this.addDebugLog(`✓ Resumed: ${name}`);
             } catch (error) {
-              this.addDebugLog(`✗ Failed: ${name}`);
+              // 재생 실패 시 focusPausedSounds에 유지
             }
           }
         });
         // 성공한 사운드만 제거
         successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
-      } else {
-        this.addDebugLog(`Ctx running, no paused sounds`);
       }
     };
 
@@ -509,18 +445,15 @@ ${this.debugLogs.join('\n')}
             // loop 사운드는 재생 위치를 저장할 필요 없음 (어차피 처음부터 재생)
             sound.stop();
             this.focusPausedSounds.add(name);
-            this.addDebugLog(`Stopped: ${name}`);
           } else {
             // 자동 재개하지 않는 사운드는 그냥 pause
             sound.pause();
           }
         } catch (error) {
-          this.addDebugLog(`Failed to stop: ${name}`);
+          console.warn('Failed to stop/pause sound on focus loss:', name, error);
         }
       }
     });
-
-    this.addDebugLog(`Background - paused ${this.focusPausedSounds.size} sounds`);
   }
 
   async resumeAfterFocusGain(): Promise<void> {
