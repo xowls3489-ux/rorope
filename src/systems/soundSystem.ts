@@ -18,6 +18,8 @@ export class SoundSystem {
   private get minIntervalMs(): Record<string, number> {
     return GAME_CONFIG.soundIntervals;
   }
+  // iOS 제스처 컨텍스트 유지용 숨겨진 요소
+  private gestureMarker: HTMLSpanElement | null = null;
 
   constructor() {
     // iOS 백그라운드 오디오 문제 해결을 위해 autoSuspend 비활성화
@@ -32,6 +34,15 @@ export class SoundSystem {
     if (savedSoundMuted !== '') {
       this.isMuted = savedSoundMuted === 'true';
     }
+
+    // iOS 제스처 컨텍스트 유지용 숨겨진 마커 생성
+    this.gestureMarker = document.createElement('span');
+    this.gestureMarker.style.position = 'absolute';
+    this.gestureMarker.style.left = '-9999px';
+    this.gestureMarker.style.opacity = '0';
+    this.gestureMarker.style.pointerEvents = 'none';
+    this.gestureMarker.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(this.gestureMarker);
   }
 
   private setupAudioContextUnlock(): void {
@@ -78,10 +89,10 @@ export class SoundSystem {
       }
 
       // iOS Safari는 실제 DOM 조작이 있어야 사용자 제스처로 인식
-      // 보이지 않는 임시 요소 생성/제거로 제스처 컨텍스트 유지
-      const dummy = document.createElement('span');
-      document.body.appendChild(dummy);
-      document.body.removeChild(dummy);
+      // 숨겨진 마커의 textContent를 업데이트하여 제스처 컨텍스트 유지
+      if (this.gestureMarker) {
+        this.gestureMarker.textContent = Date.now().toString();
+      }
 
       const ctxState = Howler.ctx.state as string;
 
