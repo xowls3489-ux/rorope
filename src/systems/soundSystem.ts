@@ -40,33 +40,6 @@ export class SoundSystem {
     this.gestureMarker.style.pointerEvents = 'none';
     this.gestureMarker.setAttribute('aria-hidden', 'true');
     document.body.appendChild(this.gestureMarker);
-
-    // Media Session API 설정 (iOS 백그라운드 오디오 지원)
-    this.setupMediaSession();
-  }
-
-  private setupMediaSession(): void {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'Rorope Game',
-        artist: 'Game Audio',
-        album: 'Background Music',
-      });
-
-      // 미디어 컨트롤 핸들러 (iOS 잠금화면/제어센터)
-      navigator.mediaSession.setActionHandler('play', () => {
-        // 음소거 해제 및 재생
-        if (this.isMuted) {
-          this.setMuted(false);
-        }
-        this.tryResumeAfterBackground();
-      });
-
-      navigator.mediaSession.setActionHandler('pause', () => {
-        // 일시정지
-        this.pauseForFocusLoss();
-      });
-    }
   }
 
   private setupAudioContextUnlock(): void {
