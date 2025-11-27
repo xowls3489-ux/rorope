@@ -246,7 +246,7 @@ export class SoundSystem {
     // 게임 배경음악
     const backgroundMusic = new Howl({
       src: ['/sounds/bgm/loopbgm.wav'],
-      volume: 0.15,
+      volume: 0.3,
       loop: true,
       preload: true,
       autoplay: false,
@@ -262,7 +262,7 @@ export class SoundSystem {
     // 타이틀 배경음악
     const titleMusic = new Howl({
       src: ['/sounds/bgm/titlebgm.mp3'],
-      volume: 0.2,
+      volume: 0.4,
       loop: true,
       preload: true,
       autoplay: false,
@@ -362,7 +362,7 @@ export class SoundSystem {
             return;
           }
           // 배경음은 낮은 볼륨으로 재생
-          const bgVolume = soundName === 'titleBgm' ? 0.2 : 0.15;
+          const bgVolume = soundName === 'titleBgm' ? 0.4 : 0.3;
           sound.volume(this.isMuted ? 0 : bgVolume);
           sound.play();
           logger.log(`${soundName} 재생 시작`);
