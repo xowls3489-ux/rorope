@@ -22,9 +22,6 @@ export class SoundSystem {
   private gestureMarker: HTMLSpanElement | null = null;
 
   constructor() {
-    // iOS 백그라운드 오디오 문제 해결을 위해 autoSuspend 비활성화
-    Howler.autoSuspend = false;
-
     // 사운드 초기화를 지연시켜 AudioContext 경고 방지
     this.setupAudioContextUnlock();
     // initSounds는 첫 번째 사용자 상호작용 후에 호출됨
@@ -43,6 +40,33 @@ export class SoundSystem {
     this.gestureMarker.style.pointerEvents = 'none';
     this.gestureMarker.setAttribute('aria-hidden', 'true');
     document.body.appendChild(this.gestureMarker);
+
+    // Media Session API 설정 (iOS 백그라운드 오디오 지원)
+    this.setupMediaSession();
+  }
+
+  private setupMediaSession(): void {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Rorope Game',
+        artist: 'Game Audio',
+        album: 'Background Music',
+      });
+
+      // 미디어 컨트롤 핸들러 (iOS 잠금화면/제어센터)
+      navigator.mediaSession.setActionHandler('play', () => {
+        // 음소거 해제 및 재생
+        if (this.isMuted) {
+          this.setMuted(false);
+        }
+        this.tryResumeAfterBackground();
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        // 일시정지
+        this.pauseForFocusLoss();
+      });
+    }
   }
 
   private setupAudioContextUnlock(): void {
@@ -226,7 +250,7 @@ export class SoundSystem {
       loop: true,
       preload: true,
       autoplay: false,
-      html5: false,
+      html5: true, // iOS 백그라운드 오디오를 위해 HTML5 Audio 사용
       onload: () => {
         logger.log('게임 배경음악 로드 완료');
       },
@@ -234,7 +258,7 @@ export class SoundSystem {
         console.warn('게임 배경음악 로드 실패:', error);
       }
     });
-    
+
     // 타이틀 배경음악
     const titleMusic = new Howl({
       src: ['/sounds/bgm/titlebgm.mp3'],
@@ -242,7 +266,7 @@ export class SoundSystem {
       loop: true,
       preload: true,
       autoplay: false,
-      html5: false,
+      html5: true, // iOS 백그라운드 오디오를 위해 HTML5 Audio 사용
       onload: () => {
         logger.log('타이틀 배경음악 로드 완료');
       },
