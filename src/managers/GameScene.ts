@@ -3,6 +3,7 @@ import { gameState, playerState, ropeState, gameActions, platforms } from '../st
 import { animationSystem } from '../systems/animationSystem';
 import { ropeSystem } from '../systems/ropeSystem';
 import { vfxSystem } from '../systems/vfxSystem';
+import { soundSystem } from '../systems/soundSystem';
 import { GAME_CONFIG, COLORS, BACKGROUND_THEMES } from '../core/config';
 import { UIManager } from './UIManager';
 import { AudioManager } from './AudioManager';
@@ -363,6 +364,9 @@ export class GameScene {
         this.stage.interactive = true;
         this.stage.hitArea = new PIXI.Rectangle(0, 0, 10000, 10000);
         this.stage.on('pointerdown', (_event: PIXI.FederatedPointerEvent) => {
+            // iOS 백그라운드 복귀 후 오디오 재개 시도
+            soundSystem.tryResumeAfterBackground();
+
             const currentState = gameState.get();
             if (currentState.gameOver) {
                 this.restartGame();
@@ -373,6 +377,9 @@ export class GameScene {
         // World 레벨 이벤트 (게임 플레이)
         this.world.interactive = true;
         this.world.on('pointerdown', (event: PIXI.FederatedPointerEvent) => {
+            // iOS 백그라운드 복귀 후 오디오 재개 시도
+            soundSystem.tryResumeAfterBackground();
+
             const currentState = gameState.get();
             if (currentState.gameOver) return;
 

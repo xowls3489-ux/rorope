@@ -446,6 +446,59 @@ export class SoundSystem {
     this.focusPausedSounds.clear();
   }
 
+  // iOS 백그라운드 복귀 후 사운드 재개 시도 (외부에서 호출용)
+  tryResumeAfterBackground(): void {
+    if (!this.audioContextUnlocked || !Howler.ctx || this.isMuted) {
+      return;
+    }
+
+    // 제스처 마커 업데이트
+    if (this.gestureMarker) {
+      this.gestureMarker.textContent = Date.now().toString();
+    }
+
+    const ctxState = Howler.ctx.state as string;
+
+    // AudioContext가 running이 아니면 재개 시도
+    if (ctxState !== 'running') {
+      Howler.ctx.resume().then(() => {
+        // 일시정지된 사운드 재생
+        if (this.focusPausedSounds.size > 0) {
+          const successfullyResumed: string[] = [];
+          this.focusPausedSounds.forEach(name => {
+            const sound = this.sounds.get(name);
+            if (sound && !sound.playing()) {
+              try {
+                sound.play();
+                successfullyResumed.push(name);
+              } catch (error) {
+                // 재생 실패 시 유지
+              }
+            }
+          });
+          successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
+        }
+      }).catch(() => {
+        // resume 실패는 무시
+      });
+    } else if (this.focusPausedSounds.size > 0) {
+      // AudioContext는 running - 사운드만 재생
+      const successfullyResumed: string[] = [];
+      this.focusPausedSounds.forEach(name => {
+        const sound = this.sounds.get(name);
+        if (sound && !sound.playing()) {
+          try {
+            sound.play();
+            successfullyResumed.push(name);
+          } catch (error) {
+            // 재생 실패 시 유지
+          }
+        }
+      });
+      successfullyResumed.forEach(name => this.focusPausedSounds.delete(name));
+    }
+  }
+
   private shouldAutoResume(name: string): boolean {
     return name === 'background' || name === 'titleBgm' || name === 'swing';
   }
