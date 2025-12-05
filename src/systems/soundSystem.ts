@@ -223,7 +223,7 @@ export class SoundSystem {
       loop: true,
       preload: true,
       autoplay: false,
-      html5: true, // iOS 백그라운드 오디오를 위해 HTML5 Audio 사용
+      html5: false,
       onload: () => {
         logger.log('게임 배경음악 로드 완료');
       },
@@ -239,7 +239,7 @@ export class SoundSystem {
       loop: true,
       preload: true,
       autoplay: false,
-      html5: true, // iOS 백그라운드 오디오를 위해 HTML5 Audio 사용
+      html5: false,
       onload: () => {
         logger.log('타이틀 배경음악 로드 완료');
       },
