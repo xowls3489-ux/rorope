@@ -52,9 +52,9 @@ export const GAME_CONFIG = {
     grappleReboundDistance: 20,
     grappleMomentumBoost: 1.2,
     grappleCameraZoom: 0.95,
-    
+
     // 카메라 설정
-    baseCameraZoom: 0.85, // 기본 줌 레벨
+    baseCameraZoom: 0.75, // 기본 줌 레벨 (낮을수록 더 넓게 보임)
     cameraDeadZoneY: 120, // Y축 데드존 (작을수록 빠르게 반응)
     cameraSpeedY: 0.25, // Y축 추적 속도 (클수록 빠름)
     
