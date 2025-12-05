@@ -2,6 +2,7 @@ import { Howl, Howler } from 'howler';
 import { userManager } from '../managers/UserManager';
 import { logger } from '../utils/logger';
 import { GAME_CONFIG } from '../core/config';
+import { isIOS } from '../utils/platform';
 
 // 사운드 효과 클래스
 export class SoundSystem {
@@ -217,13 +218,15 @@ export class SoundSystem {
     });
 
     // 게임 배경음악
+    // iOS: HTML5 Audio 사용 (백그라운드 재생 지원)
+    // Android: Web Audio API 사용 (토스앱 WebView 호환성)
     const backgroundMusic = new Howl({
       src: ['/sounds/bgm/loopbgm.wav'],
       volume: 0.3,
       loop: true,
       preload: true,
       autoplay: false,
-      html5: false,
+      html5: isIOS(),
       onload: () => {
         logger.log('게임 배경음악 로드 완료');
       },
@@ -239,7 +242,7 @@ export class SoundSystem {
       loop: true,
       preload: true,
       autoplay: false,
-      html5: false,
+      html5: isIOS(),
       onload: () => {
         logger.log('타이틀 배경음악 로드 완료');
       },

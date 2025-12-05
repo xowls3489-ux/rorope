@@ -59,6 +59,16 @@ export function isLeaderboardAvailable(): boolean {
 }
 
 /**
+ * iOS 플랫폼인지 확인
+ */
+export function isIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const ua = navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(ua);
+}
+
+/**
  * 플랫폼 정보
  */
 export function getPlatformInfo() {
@@ -66,6 +76,7 @@ export function getPlatformInfo() {
     isToss: isTossApp(),
     isStandaloneAndroid: isStandaloneAndroid(),
     isLeaderboardAvailable: isLeaderboardAvailable(),
+    isIOS: isIOS(),
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
   };
 }
