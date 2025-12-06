@@ -975,8 +975,8 @@ export class GameScene {
         const currentWorldY = this.world.y || 0;
         
         // 카메라가 추적하는 목표 Y 위치 (월드 좌표)
-        // 화면 중앙에 플레이어를 배치하기 위한 목표 world.y 값
-        const idealCameraY = -(playerPos.y - viewH / 2);
+        // 플레이어를 화면 상단 40% 위치에 배치 (아래쪽 플랫폼을 더 잘 보기 위해)
+        const idealCameraY = -(playerPos.y - viewH * 0.4);
         
         // 현재 카메라 위치와 이상적인 위치의 차이 (월드 좌표 기준)
         const cameraOffset = idealCameraY - currentWorldY;

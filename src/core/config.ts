@@ -55,8 +55,8 @@ export const GAME_CONFIG = {
 
     // 카메라 설정
     baseCameraZoom: 0.75, // 기본 줌 레벨 (낮을수록 더 넓게 보임)
-    cameraDeadZoneY: 120, // Y축 데드존 (작을수록 빠르게 반응)
-    cameraSpeedY: 0.25, // Y축 추적 속도 (클수록 빠름)
+    cameraDeadZoneY: 60, // Y축 데드존 (작을수록 빠르게 반응) - 120에서 60으로 감소
+    cameraSpeedY: 0.4, // Y축 추적 속도 (클수록 빠름) - 0.25에서 0.4로 증가
     
     // 스크롤 방식 설정
     get playerFixedX() { return Math.min(280, this.width * 0.35); },
